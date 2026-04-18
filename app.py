@@ -63,7 +63,7 @@ if uploaded_file:
                 
                 # เก็บ mapping ระหว่าง Description -> Item No. จากไฟล์ต้นฉบับ
                 # สมมติว่า Item No. อยู่ในคอลัมน์ Index ที่ 1 (ถ้าไม่ใช่ ให้แก้เลข 1 เป็นชื่อคอลัมน์)
-                item_no_col = df_raw.columns[1] 
+                item_no_col = df_raw.columns[3] 
                 desc_col = df_raw.columns[0] # หรือชื่อคอลัมน์สินค้า
                 item_no_map = dict(zip(df_raw[desc_col], df_raw[item_no_col]))
 
