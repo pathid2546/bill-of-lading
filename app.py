@@ -6,19 +6,8 @@ import io
 # --- CONFIG & UI ---
 st.set_page_config(page_title="BNN | Smart Order System", layout="wide")
 
-st.markdown("""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500&display=swap');
-    html, body, [class*="css"] { font-family: 'Kanit', sans-serif; }
-    .metric-card { background-color: #ffffff; padding: 20px; border-radius: 10px; border-left: 5px solid #002060; color: #1f1f1f !important; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-    .metric-card b { color: #002060 !important; }
-    h1, h2, h3 { color: #ffffff !important; }
-    </style>
-    """, unsafe_allow_html=True)
-
-# --- SESSION STATE (MASTER DATA & HEADERS) ---
+# --- SESSION STATE ---
 if 'master_data' not in st.session_state:
-    # ข้อมูลเริ่มต้น 27 รายการ
     st.session_state.master_data = [
         {"#": 1, "Item No.": "FG-FZ-0014", "Description": "เนื้อสันคอ", "UNIT": "กิโลกรัม"},
         {"#": 2, "Item No.": "FG-FZ-0037", "Description": "เนื้อวัวออสเตรเลีย", "UNIT": "กิโลกรัม"},
@@ -61,19 +50,14 @@ with st.sidebar:
     st.title("BNN Group")
     menu = st.radio("เมนูหลัก", ["📤 อัปโหลดข้อมูล", "⚙️ ตั้งค่าระบบ"])
 
-# --- MAIN PAGE: UPLOAD ---
+# --- UPLOAD PAGE ---
 if menu == "📤 อัปโหลดข้อมูล":
     st.header("📤 ประมวลผลใบเบิกสินค้า")
-    col1, col2 = st.columns(2)
-    with col1: st.markdown('<div class="metric-card"><b>สถานะ</b><br>พร้อมใช้งาน</div>', unsafe_allow_html=True)
-    with col2: st.markdown(f'<div class="metric-card"><b>มาสเตอร์สินค้า</b><br>{len(st.session_state.master_data)} รายการ</div>', unsafe_allow_html=True)
-    
     uploaded_file = st.file_uploader("เลือกไฟล์ Raw Data (.xlsx)", type="xlsx")
     
     if uploaded_file:
         if st.button("🚀 เริ่มการประมวลผล"):
             try:
-                # 1. อ่านไฟล์ Raw Data
                 df_raw = pd.read_excel(uploaded_file)
                 store_col = df_raw.columns[2]
                 item_cols = df_raw.columns[4:].tolist()
@@ -89,33 +73,34 @@ if menu == "📤 อัปโหลดข้อมูล":
                     short_codes[name] = s_code
 
                 df_raw['Clean_Store'] = clean_names
-                
-                # 2. Pivot ข้อมูลสินค้าที่มีการสั่งซื้อจากไฟล์ Raw
                 df_pivot = df_raw.set_index('Clean_Store')[item_cols].T.reset_index()
                 df_pivot = df_pivot.rename(columns={'index': 'Description'})
                 df_pivot['Description'] = df_pivot['Description'].str.strip()
 
-                # 3. ตรรกะดึงมาให้ครบ (Merge Outer)
+                # --- ตรรกะการเรียงลำดับใหม่เพื่อป้องกันรายการใหม่ขึ้นก่อน ---
                 master_df = pd.DataFrame(st.session_state.master_data)
                 master_df['Description'] = master_df['Description'].str.strip()
-                
-                # รวมข้อมูลเอาทั้ง Master และรายการใหม่จาก Raw
-                final_df = pd.merge(master_df, df_pivot, on='Description', how='outer').fillna(0)
-                
-                # --- การเรียงลำดับแบบ Index มาก่อน สินค้าใหม่ต่อท้าย ---
-                # แปลงคอลัมน์ Index ให้เป็นตัวเลขเพื่อการ Sort (รายการใหม่จะเป็น NaN)
-                final_df['#'] = pd.to_numeric(final_df['#'], errors='coerce')
-                
-                # เรียงลำดับตาม # (1,2,3...) รายการที่ไม่มี # (NaN) จะไปอยู่ท้ายสุดเสมอ (na_position='last')
-                final_df = final_df.sort_values(by=['#'], ascending=True, na_position='last').reset_index(drop=True)
+                master_df['#'] = pd.to_numeric(master_df['#'], errors='coerce')
 
-                # 4. สร้างไฟล์ Excel
+                # 1. รวมข้อมูล (Outer Join)
+                merged_df = pd.merge(master_df, df_pivot, on='Description', how='outer')
+
+                # 2. แยกเป็น 2 กลุ่ม
+                # กลุ่ม A: รายการที่มีเลขลำดับ (#) (รายการจาก Master)
+                group_a = merged_df[merged_df['#'].notnull()].sort_values(by='#', ascending=True)
+                
+                # กลุ่ม B: รายการที่ไม่มีเลขลำดับ (#) (รายการใหม่จาก Raw Data)
+                group_b = merged_df[merged_df['#'].isnull()]
+
+                # 3. นำกลุ่ม A ตั้ง แล้วเอากลุ่ม B ต่อท้าย (Append)
+                final_df = pd.concat([group_a, group_b], ignore_index=True).fillna(0)
+
+                # 4. เขียนไฟล์ Excel
                 output = io.BytesIO()
                 with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                     workbook = writer.book
                     sheet = workbook.add_worksheet('ใบเบิก')
                     
-                    # Formats
                     f_base = {'font_name': 'Cordia New', 'font_size': 14}
                     f_header = workbook.add_format({**f_base, 'bg_color': '#002060', 'font_color': 'white', 'bold': True, 'border': 1, 'align': 'center'})
                     f_grey = workbook.add_format({**f_base, 'bg_color': '#D9D9D9', 'border': 1, 'bold': True, 'align': 'center'})
@@ -123,17 +108,15 @@ if menu == "📤 อัปโหลดข้อมูล":
                     f_rotate = workbook.add_format({**f_base, 'font_size': 11, 'rotation': 45, 'valign': 'bottom', 'align': 'center', 'border': 1})
                     f_trip = workbook.add_format({**f_base, 'font_size': 11, 'bg_color': '#FF0000', 'font_color': 'white', 'border': 1, 'align': 'center', 'bold': True})
 
-                    # หัวเอกสาร (บรรทัด 1-3)
+                    # หัวเอกสาร
                     sheet.merge_range('A1:Z1', st.session_state.header_title, f_header)
                     sheet.write('A2', st.session_state.company_name_th, workbook.add_format(f_base))
                     sheet.write('A3', st.session_state.company_name_en, workbook.add_format(f_base))
 
-                    # หัวตาราง (บรรทัด 6-7)
                     for i, h in enumerate(['#', 'Item No.', 'Description', 'UNIT']):
                         sheet.write(5, i, h, f_grey)
                         sheet.write(6, i, "", f_border)
 
-                    # คอลัมน์สาขา
                     stores = [c for c in final_df.columns if c not in ['#', 'Item No.', 'Description', 'UNIT']]
                     for i, s in enumerate(stores):
                         col_idx = i + 4
@@ -141,11 +124,10 @@ if menu == "📤 อัปโหลดข้อมูล":
                         sheet.write(6, col_idx, short_codes.get(s, ""), f_trip)
                         sheet.set_column(col_idx, col_idx, 5)
 
-                    # เขียนข้อมูลสินค้า
                     for i, row in final_df.iterrows():
                         ri = i + 7
-                        # แสดงผล Index เฉพาะที่มีค่า (ถ้าไม่มี Index จาก Master ให้ว่างไว้)
-                        disp_idx = int(row['#']) if pd.notnull(row['#']) and row['#'] != 0 else ""
+                        # ถ้าเป็นรายการใหม่ที่ไม่มีเลขลำดับ ให้ใส่ "-" หรือปล่อยว่างตามที่คุณต้องการ
+                        disp_idx = int(row['#']) if row['#'] != 0 else "-"
                         
                         sheet.write(ri, 0, disp_idx, f_border)
                         sheet.write(ri, 1, row.get('Item No.', "-") if row.get('Item No.') != 0 else "-", f_border)
@@ -158,35 +140,18 @@ if menu == "📤 อัปโหลดข้อมูล":
                     sheet.set_column('D:D', 15)
 
                 st.session_state.ready_file = output.getvalue()
-                st.success("✅ ประมวลผลและจัดเรียงข้อมูลเรียบร้อยแล้ว!")
+                st.success("✅ แก้ไขการเรียงลำดับแล้ว! รายการใหม่จะไปต่อท้ายเสมอ")
             except Exception as e:
-                st.error(f"เกิดข้อผิดพลาด: {e}")
+                st.error(f"Error: {e}")
 
     if 'ready_file' in st.session_state:
-        st.download_button("📥 ดาวน์โหลดไฟล์ Excel", st.session_state.ready_file, "BNN_Order_Sorted.xlsx")
+        st.download_button("📥 ดาวน์โหลดไฟล์ Excel", st.session_state.ready_file, "BNN_Correct_Sorting.xlsx")
 
-# --- MAIN PAGE: SETTINGS ---
+# --- SETTINGS PAGE ---
 elif menu == "⚙️ ตั้งค่าระบบ":
     st.header("⚙️ ตั้งค่าระบบ")
-    
-    # ส่วนหัวใบเบิก
-    st.subheader("📝 ข้อมูลหัวใบเบิก")
-    c1, c2 = st.columns(2)
-    with c1:
-        st.session_state.header_title = st.text_input("หัวข้อเอกสาร", st.session_state.header_title)
-        st.session_state.company_name_th = st.text_input("ชื่อบริษัท (ไทย)", st.session_state.company_name_th)
-    with c2:
-        st.session_state.company_name_en = st.text_input("ชื่อบริษัท (Eng)", st.session_state.company_name_en)
-        st.write("")
-        if st.button("💾 บันทึกหัวเอกสาร"):
-            st.toast("บันทึกข้อมูลหัวเอกสารแล้ว", icon="✅")
-
-    st.markdown("---")
-    
-    # จัดการรายการสินค้า
-    st.subheader("📦 มาสเตอร์สินค้าและลำดับ Index (#)")
-    st.info("รายการที่มีเลขลำดับ (#) จะขึ้นก่อนในไฟล์ Excel สินค้าที่ไม่มีในนี้จะถูกนำไปต่อท้ายสุด")
+    st.subheader("📦 มาสเตอร์สินค้า (ลำดับ 1-27)")
     edited_df = st.data_editor(pd.DataFrame(st.session_state.master_data), num_rows="dynamic", use_container_width=True)
-    if st.button("💾 บันทึกมาสเตอร์สินค้า"):
+    if st.button("💾 บันทึกมาสเตอร์"):
         st.session_state.master_data = edited_df.to_dict('records')
-        st.toast("บันทึกรายการสินค้า Master เรียบร้อย", icon="✅")
+        st.success("บันทึกเรียบร้อย")
