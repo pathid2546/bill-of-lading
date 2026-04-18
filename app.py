@@ -3,7 +3,7 @@ import pandas as pd
 import re
 import io
 
-# 1. ตั้งค่าข้อมูล Default UNIT ทั้งหมดตามรูปภาพ
+# 1. ข้อมูล Default UNIT
 DEFAULT_UNITS = [
     {"Description": "เนื้อสันคอ", "UNIT": "กิโลกรัม"},
     {"Description": "เนื้อวัวออสเตรเลีย", "UNIT": "กิโลกรัม"},
@@ -34,46 +34,46 @@ DEFAULT_UNITS = [
     {"Description": "ไก่คาราเกะ", "UNIT": "ลัง/10ถุง/1กิโลกรัม"}
 ]
 
-# ตั้งค่าหน้าจอ
 st.set_page_config(page_title="BNN Excel Converter", layout="wide")
 st.title("📦 ระบบจัดการใบเบิกสินค้า (Streamlit)")
 
-# ส่วนที่ 1: ข้อมูลบริษัท
+# ส่วนข้อมูลบริษัท
 st.subheader("🏢 ข้อมูลบริษัท")
 c1, c2 = st.columns(2)
 comp_th = c1.text_input("ชื่อภาษาไทย", "บริษัท บี เอ็น เอ็น เรสเตอรองท์ กรุ๊ป จำกัด")
 comp_en = c2.text_input("ชื่อภาษาอังกฤษ", "Company BNN RESTAURANT GROUP COMPANY LIMITED")
 
-# ส่วนที่ 2: ตารางจัดการ UNIT
+# ตารางจัดการ UNIT
 st.subheader("📋 จัดการหน่วยสินค้า (UNIT)")
-edited_df = st.data_editor(
-    pd.DataFrame(DEFAULT_UNITS), 
-    num_rows="dynamic", 
-    use_container_width=True
-)
+edited_df = st.data_editor(pd.DataFrame(DEFAULT_UNITS), num_rows="dynamic", use_container_width=True)
 unit_map = dict(zip(edited_df['Description'], edited_df['UNIT']))
 
-# ส่วนที่ 3: อัปโหลดและประมวลผล
 st.subheader("📤 อัปโหลดไฟล์ Raw Data")
 uploaded_file = st.file_uploader("เลือกไฟล์ Excel (.xlsx)", type="xlsx")
 
-# ใช้ Session State เก็บไฟล์ที่ประมวลผลเสร็จ เพื่อไม่ให้ปุ่ม Download หาย
 if "download_ready" not in st.session_state:
     st.session_state.download_ready = None
 
 if uploaded_file:
     if st.button("🚀 เริ่มประมวลผลไฟล์"):
-        with st.spinner('กำลังจัดรูปแบบไฟล์...'):
+        with st.spinner('กำลังประมวลผล...'):
             try:
-                # อ่านไฟล์
+                # 1. อ่านไฟล์และสร้าง Item No. Mapping
                 df_raw = pd.read_excel(uploaded_file)
-                store_col = df_raw.columns[2]
+                
+                # เก็บ mapping ระหว่าง Description -> Item No. จากไฟล์ต้นฉบับ
+                # สมมติว่า Item No. อยู่ในคอลัมน์ Index ที่ 1 (ถ้าไม่ใช่ ให้แก้เลข 1 เป็นชื่อคอลัมน์)
+                item_no_col = df_raw.columns[1] 
+                desc_col = df_raw.columns[0] # หรือชื่อคอลัมน์สินค้า
+                item_no_map = dict(zip(df_raw[desc_col], df_raw[item_no_col]))
+
+                store_col_original = df_raw.columns[2]
                 item_headers = df_raw.columns[4:].tolist()
 
-                # แยก Short Code
+                # 2. แยก Short Code และจัดกลุ่มสาขา
                 short_codes = {}
                 clean_names = []
-                for val in df_raw[store_col]:
+                for val in df_raw[store_col_original]:
                     match = re.search(r'\((.*?)\)', str(val))
                     s_code = match.group(1) if match else ""
                     name = re.sub(r'\(.*?\)', '', str(val)).strip()
@@ -84,7 +84,7 @@ if uploaded_file:
                 df_pivot = df_raw.set_index('Clean_Store')[item_headers].T.reset_index()
                 df_pivot = df_pivot.rename(columns={'index': 'Description'}).drop_duplicates(subset=['Description']).fillna(0)
 
-                # สร้าง Excel
+                # 3. สร้างไฟล์ Excel ด้วย XlsxWriter
                 output = io.BytesIO()
                 with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                     workbook = writer.book
@@ -93,35 +93,39 @@ if uploaded_file:
                     # Styles (Cordia New)
                     f_base = {'font_name': 'Cordia New', 'font_size': 14}
                     f_header = workbook.add_format({**f_base, 'bg_color': '#002060', 'font_color': 'white', 'bold': True, 'border': 1, 'align': 'center'})
-                    f_red = workbook.add_format({**f_base, 'font_size': 11, 'bg_color': '#FF0000', 'font_color': 'white', 'border': 1, 'align': 'center'})
+                    f_red = workbook.add_format({**f_base, 'font_size': 11, 'bg_color': '#FF0000', 'font_color': 'white', 'border': 1, 'align': 'center', 'bold': True})
                     f_rotate = workbook.add_format({**f_base, 'font_size': 11, 'rotation': 45, 'valign': 'bottom', 'align': 'center', 'border': 1})
                     f_border = workbook.add_format({**f_base, 'border': 1})
+                    f_grey_head = workbook.add_format({**f_base, 'bg_color': '#D9D9D9', 'border': 1, 'bold': True, 'align': 'center'})
 
-                    # เขียนหัวและข้อมูลบริษัท
+                    # เขียนส่วนหัว
                     sheet.merge_range('A1:Z1', 'ใบเบิกสินค้า สาขา', f_header)
                     sheet.write('A2', comp_th, workbook.add_format(f_base))
                     sheet.write('A3', comp_en, workbook.add_format(f_base))
 
-                    # หัวตารางและสาขา
+                    # หัวตารางหลัก (แถวที่ 6)
                     headers = ['#', 'Item No.', 'Description', 'UNIT']
                     for i, h in enumerate(headers):
-                        sheet.write(5, i, h, workbook.add_format({**f_base, 'bg_color': '#D9D9D9', 'border': 1}))
-                        sheet.write(6, i, "", f_border)
+                        sheet.write(5, i, h, f_grey_head)
+                        sheet.write(6, i, "", f_border) # แถวที่ 7 ใต้หัวข้อหลักให้ว่าง
 
                     stores = [c for c in df_pivot.columns if c != 'Description']
                     for i, s in enumerate(stores):
                         c_idx = i + 4
                         sheet.write(5, c_idx, s, f_rotate)
-                        sheet.write(6, c_idx, short_codes.get(s, ""), f_red) # แถวสีแดง (Short Code)
+                        sheet.write(6, c_idx, short_codes.get(s, ""), f_red) # แถวที่ 7: Short Code สีแดง
                         sheet.set_column(c_idx, c_idx, 5)
 
-                    # เขียนรายการสินค้าและ UNIT
+                    # เขียนข้อมูลสินค้า (เริ่มแถวที่ 8)
                     for r_idx, row in df_pivot.iterrows():
                         e_row = r_idx + 7
-                        sheet.write(e_row, 0, r_idx + 1, f_border)
-                        sheet.write(e_row, 1, "", f_border)
-                        sheet.write(e_row, 2, row['Description'], f_border)
-                        sheet.write(e_row, 3, unit_map.get(row['Description'], "-"), f_border)
+                        desc = row['Description']
+                        
+                        sheet.write(e_row, 0, r_idx + 1, f_border) # ลำดับ (#)
+                        sheet.write(e_row, 1, item_no_map.get(desc, ""), f_border) # Item No. ดึงจากรหัสสินค้าต้นฉบับ
+                        sheet.write(e_row, 2, desc, f_border) # รายการสินค้า
+                        sheet.write(e_row, 3, unit_map.get(desc, "-"), f_border) # หน่วย (UNIT)
+                        
                         for c_idx, s in enumerate(stores):
                             sheet.write(e_row, c_idx + 4, row[s], f_border)
 
@@ -130,7 +134,6 @@ if uploaded_file:
             except Exception as e:
                 st.error(f"เกิดข้อผิดพลาด: {e}")
 
-    # แสดงปุ่มดาวน์โหลดเมื่อข้อมูลพร้อม
     if st.session_state.download_ready:
         st.download_button(
             label="💾 ดาวน์โหลดไฟล์ใบเบิกสินค้า",
