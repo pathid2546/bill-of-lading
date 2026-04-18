@@ -6,20 +6,47 @@ import io
 # --- CONFIG & ASSETS ---
 st.set_page_config(page_title="BNN | Smart Order System", layout="wide", initial_sidebar_state="expanded")
 
-# Custom CSS เพื่อความสวยงาม
+# ปรับปรุง CSS ให้สีข้อความชัดเจนขึ้น
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500&display=swap');
+    
+    /* บังคับฟอนต์ทั้งแอป */
     html, body, [class*="css"] { font-family: 'Kanit', sans-serif; }
-    .main { background-color: #f8f9fa; }
-    .stButton>button { width: 100%; border-radius: 8px; height: 3em; background-color: #002060; color: white; border: none; font-weight: 500; }
-    .stButton>button:hover { background-color: #003399; color: white; }
-    .metric-card { background: white; padding: 20px; border-radius: 10px; border-left: 5px solid #002060; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    
+    /* ปรับแต่ง Metric Card ให้ข้อความเป็นสีดำชัดเจนตัดกับพื้นขาว */
+    .metric-card { 
+        background-color: #ffffff; 
+        padding: 20px; 
+        border-radius: 10px; 
+        border-left: 5px solid #002060; 
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        color: #1f1f1f !important; /* บังคับสีข้อความเข้ม */
+    }
+    .metric-card b { color: #002060 !important; }
+    .metric-value { font-size: 20px; font-weight: 500; color: #1f1f1f !important; }
+    
+    /* ปุ่มกดให้เด่นชัด */
+    .stButton>button { 
+        width: 100%; 
+        border-radius: 8px; 
+        height: 3.5em; 
+        background-color: #002060; 
+        color: white !important; 
+        border: none; 
+        font-weight: 500;
+        margin-top: 10px;
+    }
+    .stButton>button:hover { background-color: #003399; color: white !important; }
+    
+    /* ปรับสีหัวข้อให้สว่างขึ้นเมื่ออยู่ใน Dark Mode */
+    h1, h2, h3 { color: #ffffff !important; }
     </style>
     """, unsafe_allow_html=True)
 
 # --- INITIAL DATA ---
 if 'master_data' not in st.session_state:
+    # รวบรวมข้อมูลจากรูปภาพต้นฉบับ
     st.session_state.master_data = [
         {"#": 1, "Item No.": "FG-FZ-0014", "Description": "เนื้อสันคอ", "UNIT": "กิโลกรัม"},
         {"#": 2, "Item No.": "FG-FZ-0037", "Description": "เนื้อวัวออสเตรเลีย", "UNIT": "กิโลกรัม"},
@@ -57,7 +84,7 @@ with st.sidebar:
     st.markdown("---")
     menu = st.radio("เมนูหลัก", ["📤 อัปโหลดข้อมูล", "⚙️ ตั้งค่าระบบ"])
     st.markdown("---")
-    st.caption("v2.2.0 - Final Build")
+    st.caption("v2.2.1 - UI Fixed Build")
 
 # --- MAIN PAGE ---
 if menu == "📤 อัปโหลดข้อมูล":
@@ -65,20 +92,30 @@ if menu == "📤 อัปโหลดข้อมูล":
     
     col1, col2 = st.columns(2)
     with col1:
-        st.markdown('<div class="metric-card"><b>สถานะ</b><br><span style="color:green">● พร้อมใช้งาน</span></div>', unsafe_allow_html=True)
+        st.markdown(f'''
+            <div class="metric-card">
+                <b>สถานะระบบ</b><br>
+                <span style="color:#28a745; font-weight:bold;">● พร้อมใช้งาน</span>
+            </div>
+        ''', unsafe_allow_html=True)
     with col2:
-        st.markdown(f'<div class="metric-card"><b>สินค้าในระบบ</b><br>{len(st.session_state.master_data)} รายการ</div>', unsafe_allow_html=True)
+        st.markdown(f'''
+            <div class="metric-card">
+                <b>สินค้าในฐานข้อมูล</b><br>
+                <span class="metric-value">{len(st.session_state.master_data)} รายการ</span>
+            </div>
+        ''', unsafe_allow_html=True)
     
     st.write("")
-    uploaded_file = st.file_uploader("เลือกไฟล์ Raw Data (.xlsx)", type="xlsx")
+    uploaded_file = st.file_uploader("เลือกไฟล์ Raw Data Excel", type="xlsx")
     
     if uploaded_file:
-        if st.button("🚀 เริ่มการแปลงข้อมูล"):
-            with st.spinner('กำลังทำงาน...'):
+        if st.button("🚀 เริ่มการประมวลผลไฟล์"):
+            with st.spinner('กำลังจัดรูปแบบข้อมูล...'):
                 try:
-                    # อ่านและเตรียมข้อมูล
                     df_raw = pd.read_excel(uploaded_file)
                     store_col = df_raw.columns[2]
+                    # ดึงรหัส Trip จากรูปภาพอ้างอิง
                     item_cols = df_raw.columns[4:].tolist()
 
                     short_codes = {}
@@ -95,19 +132,16 @@ if menu == "📤 อัปโหลดข้อมูล":
                     df_pivot = df_raw.set_index('Clean_Store')[item_cols].T.reset_index()
                     df_pivot = df_pivot.rename(columns={'index': 'Description'}).drop_duplicates(subset=['Description']).fillna(0)
 
-                    # เตรียมตัวแปร Mapping
                     master_df = pd.DataFrame(st.session_state.master_data)
                     idx_map = dict(zip(master_df['Description'].str.strip(), master_df['#']))
                     it_map = dict(zip(master_df['Description'].str.strip(), master_df['Item No.'].str.strip()))
                     un_map = dict(zip(master_df['Description'].str.strip(), master_df['UNIT'].str.strip()))
 
-                    # สร้าง Excel
                     output = io.BytesIO()
                     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                         workbook = writer.book
                         sheet = workbook.add_worksheet('ใบเบิกสินค้า')
 
-                        # Styles
                         f_base = {'font_name': 'Cordia New', 'font_size': 14}
                         f_h = workbook.add_format({**f_base, 'bg_color': '#002060', 'font_color': 'white', 'bold': True, 'border': 1, 'align': 'center'})
                         f_r = workbook.add_format({**f_base, 'font_size': 11, 'bg_color': '#FF0000', 'font_color': 'white', 'border': 1, 'align': 'center', 'bold': True})
@@ -119,7 +153,6 @@ if menu == "📤 อัปโหลดข้อมูล":
                         sheet.write('A2', "บริษัท บี เอ็น เอ็น เรสเตอรองท์ กรุ๊ป จำกัด", workbook.add_format(f_base))
                         sheet.write('A3', "Company BNN RESTAURANT GROUP COMPANY LIMITED", workbook.add_format(f_base))
 
-                        # Headers
                         for i, h in enumerate(['#', 'Item No.', 'Description', 'UNIT']):
                             sheet.write(5, i, h, f_g)
                             sheet.write(6, i, "", f_b)
@@ -135,6 +168,7 @@ if menu == "📤 อัปโหลดข้อมูล":
                             ri = i + 7
                             d = str(row['Description']).strip()
                             sheet.write(ri, 0, idx_map.get(d, i+1), f_b)
+                            sheet.write(ri, ri, it_map.get(d, "-"), f_b) # แก้ไขตำแหน่ง Column
                             sheet.write(ri, 1, it_map.get(d, "-"), f_b)
                             sheet.write(ri, 2, d, f_b)
                             sheet.write(ri, 3, un_map.get(d, "-"), f_b)
@@ -145,21 +179,21 @@ if menu == "📤 อัปโหลดข้อมูล":
                         sheet.set_column('D:D', 20)
 
                     st.session_state.ready_file = output.getvalue()
-                    st.success("✅ ประมวลผลสำเร็จ!")
+                    st.success("✨ ประมวลผลสำเร็จ!")
                     st.balloons()
                 except Exception as e:
                     st.error(f"เกิดข้อผิดพลาด: {e}")
 
-        # ปุ่มดาวน์โหลดแยกจาก Try block เพื่อป้องกัน Syntax Error
         if 'ready_file' in st.session_state:
-            st.download_button("📥 ดาวน์โหลดไฟล์ Excel", st.session_state.ready_file, "Order_Form.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            st.write("")
+            st.download_button("📥 ดาวน์โหลดไฟล์ Excel ผลลัพธ์", st.session_state.ready_file, "BNN_Order_Form.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 elif menu == "⚙️ ตั้งค่าระบบ":
     st.header("⚙️ ตั้งค่ามาสเตอร์ไฟล์")
+    st.info("แก้ไขรหัสสินค้า หรือหน่วยนับได้ที่นี่ ข้อมูลจะถูกบันทึกไว้ใช้งานในการอัปโหลดครั้งถัดไป")
     
-    st.subheader("แก้ไขข้อมูลสินค้า (#, Item No., UNIT)")
     edited_df = st.data_editor(pd.DataFrame(st.session_state.master_data), num_rows="dynamic", use_container_width=True)
     
-    if st.button("💾 บันทึกข้อมูล"):
+    if st.button("💾 บันทึกการเปลี่ยนแปลง"):
         st.session_state.master_data = edited_df.to_dict('records')
         st.toast("บันทึกสำเร็จ!", icon="✅")
