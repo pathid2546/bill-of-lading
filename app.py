@@ -80,7 +80,7 @@ if 'master_data' not in st.session_state:
 # --- SIDEBAR ---
 with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/4090/4090434.png", width=80)
-    st.title("BNN Group")
+    st.title("น้องเดียร์บิลลิ่ง.จำกัด")
     st.markdown("---")
     menu = st.radio("เมนูหลัก", ["📤 อัปโหลดข้อมูล", "⚙️ ตั้งค่าระบบ"])
     st.markdown("---")
