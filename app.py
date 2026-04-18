@@ -6,7 +6,7 @@ import io
 # --- CONFIG & ASSETS ---
 st.set_page_config(page_title="BNN | Smart Order System", layout="wide", initial_sidebar_state="expanded")
 
-# Custom CSS เพื่อความสวยงาม (ไม่ให้ดูเหมือน AI Draft ทั่วไป)
+# Custom CSS เพื่อความสวยงาม
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500&display=swap');
@@ -18,9 +18,8 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- DEFAULT DATA ---
+# --- INITIAL DATA ---
 if 'master_data' not in st.session_state:
-    # --- แก้ไขบรรทัดที่ 32 - 38 ในส่วน DEFAULT_DATA ---
     st.session_state.master_data = [
         {"#": 1, "Item No.": "FG-FZ-0014", "Description": "เนื้อสันคอ", "UNIT": "กิโลกรัม"},
         {"#": 2, "Item No.": "FG-FZ-0037", "Description": "เนื้อวัวออสเตรเลีย", "UNIT": "กิโลกรัม"},
@@ -34,7 +33,7 @@ if 'master_data' not in st.session_state:
         {"#": 10, "Item No.": "FG-FZ-0028", "Description": "เกี๊ยวผักโขม", "UNIT": "ลัง"},
         {"#": 11, "Item No.": "FG-FZ-0033", "Description": "ไก่กรอบ", "UNIT": "ลัง"},
         {"#": 12, "Item No.": "FG-FZ-0042", "Description": "สาหร่ายวากาเมะ (แช่แข็ง)", "UNIT": "ลัง"},
-        {"#": 13, "Item No.": "FG-CH-0024", "Description": "หัวเชื้อน้ำซุปหม่าล่า", "UNIT": "ลัง"}, # แก้ไขจุดนี้แล้ว
+        {"#": 13, "Item No.": "FG-CH-0024", "Description": "หัวเชื้อน้ำซุปหม่าล่า", "UNIT": "ลัง"},
         {"#": 14, "Item No.": "FG-FZ-0091", "Description": "ปลาเส้น (แช่แข็ง)", "UNIT": "ลัง"},
         {"#": 15, "Item No.": "FG-CH-0026", "Description": "ไส้กรอกแดง", "UNIT": "ลัง"},
         {"#": 16, "Item No.": "FG-FZ-0120", "Description": "คิมมาริ", "UNIT": "ลัง/10 กก."},
@@ -51,134 +50,116 @@ if 'master_data' not in st.session_state:
         {"#": 27, "Item No.": "FG-FZ-9035", "Description": "ไก่คาราเกะ", "UNIT": "ลัง/10ถุง/1กิโลกรัม"}
     ]
 
-# --- SIDEBAR NAV ---
+# --- SIDEBAR ---
 with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/4090/4090434.png", width=80)
     st.title("BNN Group")
     st.markdown("---")
-    menu = st.radio("เมนูหลัก", ["📤 อัปโหลดข้อมูล", "⚙️ ตั้งค่าระบบ", "📊 ประวัติการทำงาน"])
+    menu = st.radio("เมนูหลัก", ["📤 อัปโหลดข้อมูล", "⚙️ ตั้งค่าระบบ"])
     st.markdown("---")
-    st.caption("v2.1.0 - Professional Edition")
+    st.caption("v2.2.0 - Final Build")
 
-# --- MAIN CONTENT ---
+# --- MAIN PAGE ---
 if menu == "📤 อัปโหลดข้อมูล":
-    st.header("📤 การประมวลผลใบเบิกสินค้า")
+    st.header("📤 ประมวลผลใบเบิกสินค้า")
     
-    # Header Info Cards
-    col1, col2, col3 = st.columns(3)
+    col1, col2 = st.columns(2)
     with col1:
-        st.markdown('<div class="metric-card"><b>สถานะระบบ</b><br><span style="color:green">● พร้อมใช้งาน</span></div>', unsafe_allow_html=True)
+        st.markdown('<div class="metric-card"><b>สถานะ</b><br><span style="color:green">● พร้อมใช้งาน</span></div>', unsafe_allow_html=True)
     with col2:
         st.markdown(f'<div class="metric-card"><b>สินค้าในระบบ</b><br>{len(st.session_state.master_data)} รายการ</div>', unsafe_allow_html=True)
-    with col3:
-        st.markdown('<div class="metric-card"><b>ฟอร์แมตไฟล์</b><br>Excel (.xlsx)</div>', unsafe_allow_html=True)
     
     st.write("")
+    uploaded_file = st.file_uploader("เลือกไฟล์ Raw Data (.xlsx)", type="xlsx")
     
-    # Upload Area
-    with st.container():
-        st.subheader("1. เลือกไฟล์ต้นฉบับ")
-        uploaded_file = st.file_uploader("", type="xlsx", help="ลากไฟล์ Raw Data มาวางที่นี่")
-        
-        if uploaded_file:
-            st.success(f"พบไฟล์: {uploaded_file.name}")
-            if st.button("🚀 เริ่มต้นการแปลงข้อมูล"):
-                with st.spinner('ระบบกำลังวิเคราะห์โครงสร้างตารางและสร้างไฟล์...'):
-                    # Logic การประมวลผล (ยกจากเวอร์ชันก่อนหน้า)
-                    try:
-                        df_raw = pd.read_excel(uploaded_file)
-                        store_col = df_raw.columns[2]
-                        item_cols = df_raw.columns[4:].tolist()
+    if uploaded_file:
+        if st.button("🚀 เริ่มการแปลงข้อมูล"):
+            with st.spinner('กำลังทำงาน...'):
+                try:
+                    # อ่านและเตรียมข้อมูล
+                    df_raw = pd.read_excel(uploaded_file)
+                    store_col = df_raw.columns[2]
+                    item_cols = df_raw.columns[4:].tolist()
 
-                        short_codes = {}
-                        clean_store_names = []
-                        for val in df_raw[store_col]:
-                            v_str = str(val)
-                            match = re.search(r'\((.*?)\)', v_str)
-                            s_code = match.group(1) if match else ""
-                            name = re.sub(r'\(.*?\)', '', v_str).strip()
-                            clean_store_names.append(name)
-                            short_codes[name] = s_code
+                    short_codes = {}
+                    clean_store_names = []
+                    for val in df_raw[store_col]:
+                        v_str = str(val)
+                        match = re.search(r'\((.*?)\)', v_str)
+                        s_code = match.group(1) if match else ""
+                        name = re.sub(r'\(.*?\)', '', v_str).strip()
+                        clean_store_names.append(name)
+                        short_codes[name] = s_code
 
-                        df_raw['Clean_Store'] = clean_store_names
-                        df_pivot = df_raw.set_index('Clean_Store')[item_cols].T.reset_index()
-                        df_pivot = df_pivot.rename(columns={'index': 'Description'}).drop_duplicates(subset=['Description']).fillna(0)
+                    df_raw['Clean_Store'] = clean_store_names
+                    df_pivot = df_raw.set_index('Clean_Store')[item_cols].T.reset_index()
+                    df_pivot = df_pivot.rename(columns={'index': 'Description'}).drop_duplicates(subset=['Description']).fillna(0)
 
-                        # Mapping Data
-                        master_df = pd.DataFrame(st.session_state.master_data)
-                        idx_map = dict(zip(master_df['Description'].str.strip(), master_df['#']))
-                        it_map = dict(zip(master_df['Description'].str.strip(), master_df['Item No.'].str.strip()))
-                        un_map = dict(zip(master_df['Description'].str.strip(), master_df['UNIT'].str.strip()))
+                    # เตรียมตัวแปร Mapping
+                    master_df = pd.DataFrame(st.session_state.master_data)
+                    idx_map = dict(zip(master_df['Description'].str.strip(), master_df['#']))
+                    it_map = dict(zip(master_df['Description'].str.strip(), master_df['Item No.'].str.strip()))
+                    un_map = dict(zip(master_df['Description'].str.strip(), master_df['UNIT'].str.strip()))
 
-                        output = io.BytesIO()
-                        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                            workbook = writer.book
-                            sheet = workbook.add_worksheet('ใบเบิกสินค้า')
+                    # สร้าง Excel
+                    output = io.BytesIO()
+                    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                        workbook = writer.book
+                        sheet = workbook.add_worksheet('ใบเบิกสินค้า')
 
-                            f_base = {'font_name': 'Cordia New', 'font_size': 14}
-                            f_h = workbook.add_format({**f_base, 'bg_color': '#002060', 'font_color': 'white', 'bold': True, 'border': 1, 'align': 'center'})
-                            f_r = workbook.add_format({**f_base, 'font_size': 11, 'bg_color': '#FF0000', 'font_color': 'white', 'border': 1, 'align': 'center', 'bold': True})
-                            f_rot = workbook.add_format({**f_base, 'font_size': 11, 'rotation': 45, 'valign': 'bottom', 'align': 'center', 'border': 1})
-                            f_b = workbook.add_format({**f_base, 'border': 1})
-                            f_g = workbook.add_format({**f_base, 'bg_color': '#D9D9D9', 'border': 1, 'bold': True, 'align': 'center'})
+                        # Styles
+                        f_base = {'font_name': 'Cordia New', 'font_size': 14}
+                        f_h = workbook.add_format({**f_base, 'bg_color': '#002060', 'font_color': 'white', 'bold': True, 'border': 1, 'align': 'center'})
+                        f_r = workbook.add_format({**f_base, 'font_size': 11, 'bg_color': '#FF0000', 'font_color': 'white', 'border': 1, 'align': 'center', 'bold': True})
+                        f_rot = workbook.add_format({**f_base, 'font_size': 11, 'rotation': 45, 'valign': 'bottom', 'align': 'center', 'border': 1})
+                        f_b = workbook.add_format({**f_base, 'border': 1})
+                        f_g = workbook.add_format({**f_base, 'bg_color': '#D9D9D9', 'border': 1, 'bold': True, 'align': 'center'})
 
-                            # Header
-                            sheet.merge_range('A1:Z1', 'ใบเบิกสินค้า สาขา', f_h)
-                            sheet.write('A2', "บริษัท บี เอ็น เอ็น เรสเตอรองท์ กรุ๊ป จำกัด", workbook.add_format(f_base))
-                            sheet.write('A3', "Company BNN RESTAURANT GROUP COMPANY LIMITED", workbook.add_format(f_base))
+                        sheet.merge_range('A1:Z1', 'ใบเบิกสินค้า สาขา', f_h)
+                        sheet.write('A2', "บริษัท บี เอ็น เอ็น เรสเตอรองท์ กรุ๊ป จำกัด", workbook.add_format(f_base))
+                        sheet.write('A3', "Company BNN RESTAURANT GROUP COMPANY LIMITED", workbook.add_format(f_base))
 
-                            # Table Head
-                            for i, h in enumerate(['#', 'Item No.', 'Description', 'UNIT']):
-                                sheet.write(5, i, h, f_g)
-                                sheet.write(6, i, "", f_b)
+                        # Headers
+                        for i, h in enumerate(['#', 'Item No.', 'Description', 'UNIT']):
+                            sheet.write(5, i, h, f_g)
+                            sheet.write(6, i, "", f_b)
 
-                            stores = [c for c in df_pivot.columns if c != 'Description']
-                            for i, s in enumerate(stores):
-                                ci = i + 4
-                                sheet.write(5, ci, s, f_rot)
-                                sheet.write(6, ci, short_codes.get(s, ""), f_r) #
-                                sheet.set_column(ci, ci, 5)
+                        stores = [c for c in df_pivot.columns if c != 'Description']
+                        for i, s in enumerate(stores):
+                            ci = i + 4
+                            sheet.write(5, ci, s, f_rot)
+                            sheet.write(6, ci, short_codes.get(s, ""), f_r)
+                            sheet.set_column(ci, ci, 5)
 
-                            for i, row in df_pivot.iterrows():
-                                ri = i + 7
-                                d = str(row['Description']).strip()
-                                sheet.write(ri, 0, idx_map.get(d, i+1), f_b)
-                                sheet.write(ri, 1, it_map.get(d, "-"), f_b)
-                                sheet.write(ri, 2, d, f_b)
-                                sheet.write(ri, 3, un_map.get(d, "-"), f_b)
-                                for cj, st_name in enumerate(stores):
-                                    sheet.write(ri, cj + 4, row[st_name], f_b)
+                        for i, row in df_pivot.iterrows():
+                            ri = i + 7
+                            d = str(row['Description']).strip()
+                            sheet.write(ri, 0, idx_map.get(d, i+1), f_b)
+                            sheet.write(ri, 1, it_map.get(d, "-"), f_b)
+                            sheet.write(ri, 2, d, f_b)
+                            sheet.write(ri, 3, un_map.get(d, "-"), f_b)
+                            for cj, st_name in enumerate(stores):
+                                sheet.write(ri, cj + 4, row[st_name], f_b)
 
-                            sheet.set_column('C:C', 35)
-                            sheet.set_column('D:D', 20)
+                        sheet.set_column('C:C', 35)
+                        sheet.set_column('D:D', 20)
 
-                        st.session_state.ready_file = output.getvalue()
-                        st.balloons()
-                        st.success("🎉 ประมวลผลเรียบร้อย!")
+                    st.session_state.ready_file = output.getvalue()
+                    st.success("✅ ประมวลผลสำเร็จ!")
+                    st.balloons()
+                except Exception as e:
+                    st.error(f"เกิดข้อผิดพลาด: {e}")
 
-            if 'ready_file' in st.session_state:
-                st.download_button("📥 ดาวน์โหลดไฟล์ใบเบิกที่เสร็จแล้ว", st.session_state.ready_file, "BNN_Order_Form.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        # ปุ่มดาวน์โหลดแยกจาก Try block เพื่อป้องกัน Syntax Error
+        if 'ready_file' in st.session_state:
+            st.download_button("📥 ดาวน์โหลดไฟล์ Excel", st.session_state.ready_file, "Order_Form.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 elif menu == "⚙️ ตั้งค่าระบบ":
     st.header("⚙️ ตั้งค่ามาสเตอร์ไฟล์")
     
-    tab1, tab2 = st.tabs(["📋 รายการสินค้า & Item No.", "🏢 ข้อมูลองค์กร"])
+    st.subheader("แก้ไขข้อมูลสินค้า (#, Item No., UNIT)")
+    edited_df = st.data_editor(pd.DataFrame(st.session_state.master_data), num_rows="dynamic", use_container_width=True)
     
-    with tab1:
-        st.subheader("จัดการ Mapping ข้อมูลสินค้า")
-        # Editable Table
-        edited_df = st.data_editor(pd.DataFrame(st.session_state.master_data), num_rows="dynamic", use_container_width=True, key="data_editor")
-        if st.button("💾 บันทึกการเปลี่ยนแปลง"):
-            st.session_state.master_data = edited_df.to_dict('records')
-            st.toast("บันทึกข้อมูลสำเร็จ!", icon="✅")
-
-    with tab2:
-        st.subheader("รายละเอียดหัวกระดาษ")
-        st.text_input("ชื่อบริษัท (ภาษาไทย)", "บริษัท บี เอ็น เอ็น เรสเตอรองท์ กรุ๊ป จำกัด")
-        st.text_input("ชื่อบริษัท (English)", "Company BNN RESTAURANT GROUP COMPANY LIMITED")
-        st.color_picker("สีหลักของหัวตาราง", "#002060")
-
-elif menu == "📊 ประวัติการทำงาน":
-    st.header("📊 บันทึกการทำงาน")
-    st.info("ส่วนนี้ไว้สำหรับดูประวัติการอัปโหลดไฟล์ในอนาคต")
-    st.empty()
+    if st.button("💾 บันทึกข้อมูล"):
+        st.session_state.master_data = edited_df.to_dict('records')
+        st.toast("บันทึกสำเร็จ!", icon="✅")
