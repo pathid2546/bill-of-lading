@@ -61,41 +61,41 @@ if uploaded_file:
                 # 1. อ่านไฟล์ Raw Data
                 df_raw = pd.read_excel(uploaded_file)
                 
-                # --- ส่วนค้นหาคอลัมน์ Trip และสินค้า ---
-                trip_col = None
-                desc_col = None
-                
-                # ค้นหาคอลัมน์ Trip (Index 3 ตามรูปภาพ)
-                for col in df_raw.columns:
-                    c_name = str(col).strip().lower()
-                    if c_name == 'trip':
-                        trip_col = col
-                    if any(x in c_name for x in ['desc', 'รายการ', 'ชื่อสินค้า']):
-                        desc_col = col
+                # ระบุตำแหน่งคอลัมน์ Trip และ Store Name จากรูปภาพ
+                # Column C (index 2) = STORE NAME, Column D (index 3) = Trip
+                store_col = df_raw.columns[2]
+                trip_col = df_raw.columns[3]
+                item_start_idx = 4 # สินค้าเริ่มที่คอลัมน์ E (index 4) เป็นต้นไป
 
-                # ถ้าหาจากชื่อไม่เจอ ให้ใช้ Index (Trip มักจะอยู่ช่อง D คือ Index 3)
-                if not trip_col: trip_col = df_raw.columns[3]
-                if not desc_col: desc_col = df_raw.columns[0]
+                # --- NEW LOGIC: สร้าง Item No. Map ---
+                # เนื่องจากสินค้าเป็นหัวคอลัมน์ เราต้องหาว่าสินค้าแต่ละตัวอยู่ใน Trip ไหน
+                # เราจะสแกนคอลัมน์สินค้า และหา Trip ที่มีค่ามากกว่า 0
+                item_names = df_raw.columns[item_start_idx:].tolist()
+                trip_for_items = {}
 
-                # สร้าง Map ระหว่าง ชื่อสินค้า -> Trip No. (ล้างช่องว่างหัวท้ายป้องกันการ Match ไม่เจอ)
-                trip_map = dict(zip(df_raw[desc_col].astype(str).str.strip(), df_raw[trip_col].astype(str).str.strip()))
+                for item in item_names:
+                    # หาแถวที่สินค้านั้นๆ มีจำนวน (ไม่เป็น 0 หรือ NaN) และดึงค่า Trip มา
+                    valid_trips = df_raw[df_raw[item] > 0][trip_col].unique()
+                    if len(valid_trips) > 0:
+                        trip_for_items[str(item).strip()] = str(valid_trips[0])
+                    else:
+                        trip_for_items[str(item).strip()] = "-"
 
-                # 2. เตรียมข้อมูลสาขาและทำ Pivot
-                store_col_original = df_raw.columns[2] # STORE NAME
-                item_headers = df_raw.columns[4:].tolist()
-
+                # 2. แยก Short Code และจัดกลุ่มสาขา
                 short_codes = {}
                 clean_names = []
-                for val in df_raw[store_col_original]:
-                    val_str = str(val)
-                    match = re.search(r'\((.*?)\)', val_str)
+                for val in df_raw[store_col]:
+                    v_str = str(val)
+                    match = re.search(r'\((.*?)\)', v_str)
                     s_code = match.group(1) if match else ""
-                    name = re.sub(r'\(.*?\)', '', val_str).strip()
+                    name = re.sub(r'\(.*?\)', '', v_str).strip()
                     clean_names.append(name)
                     short_codes[name] = s_code
 
                 df_raw['Clean_Store'] = clean_names
-                df_pivot = df_raw.set_index('Clean_Store')[item_headers].T.reset_index()
+                
+                # ทำ Pivot ตาราง (สลับสินค้ามาเป็นแนวตั้ง)
+                df_pivot = df_raw.set_index('Clean_Store')[item_names].T.reset_index()
                 df_pivot = df_pivot.rename(columns={'index': 'Description'}).drop_duplicates(subset=['Description']).fillna(0)
 
                 # 3. สร้างไฟล์ Excel
@@ -112,7 +112,7 @@ if uploaded_file:
                     f_border = workbook.add_format({**f_base, 'border': 1})
                     f_grey_head = workbook.add_format({**f_base, 'bg_color': '#D9D9D9', 'border': 1, 'bold': True, 'align': 'center'})
 
-                    # เขียนหัวบริษัท
+                    # เขียนส่วนหัว
                     sheet.merge_range('A1:Z1', 'ใบเบิกสินค้า สาขา', f_header)
                     sheet.write('A2', comp_th, workbook.add_format(f_base))
                     sheet.write('A3', comp_en, workbook.add_format(f_base))
@@ -130,15 +130,14 @@ if uploaded_file:
                         sheet.write(6, c_idx, short_codes.get(s, ""), f_red) #
                         sheet.set_column(c_idx, c_idx, 5)
 
-                    # เขียนข้อมูลสินค้า
+                    # เขียนข้อมูลรายสินค้า
                     for r_idx, row in df_pivot.iterrows():
                         e_row = r_idx + 7
                         desc_val = str(row['Description']).strip()
                         
                         sheet.write(e_row, 0, r_idx + 1, f_border)
-                        # ดึงค่า Trip จาก Map มาใส่ใน Item No.
-                        trip_val = trip_map.get(desc_val, "")
-                        sheet.write(e_row, 1, trip_val, f_border) 
+                        # ดึงค่า Trip ที่จับคู่ไว้มาใส่ในช่อง Item No.
+                        sheet.write(e_row, 1, trip_for_items.get(desc_val, "-"), f_border) 
                         sheet.write(e_row, 2, desc_val, f_border)
                         sheet.write(e_row, 3, unit_map.get(desc_val, "-"), f_border)
                         
@@ -146,7 +145,7 @@ if uploaded_file:
                             sheet.write(e_row, c_idx + 4, row[s], f_border)
 
                     sheet.set_column('C:C', 35)
-                    sheet.set_column('D:D', 20)
+                    sheet.set_column('D:D', 15)
 
                 st.session_state.download_ready = output.getvalue()
                 st.success("✅ ประมวลผลสำเร็จ!")
