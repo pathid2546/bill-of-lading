@@ -19,7 +19,6 @@ st.markdown("""
 
 # --- INITIAL DATA SETUP ---
 if 'master_data' not in st.session_state:
-    # ข้อมูลมาสเตอร์สินค้า 27 รายการ
     st.session_state.master_data = [
         {"#": 1, "Item No.": "FG-FZ-0014", "Description": "เนื้อสันคอ", "UNIT": "กิโลกรัม"},
         {"#": 2, "Item No.": "FG-FZ-0037", "Description": "เนื้อวัวออสเตรเลีย", "UNIT": "กิโลกรัม"},
@@ -50,7 +49,6 @@ if 'master_data' not in st.session_state:
         {"#": 27, "Item No.": "FG-FZ-9035", "Description": "ไก่คาราเกะ", "UNIT": "ลัง/10ถุง/1กิโลกรัม"}
     ]
 
-# ส่วนหัวเอกสารที่ต้องการให้แก้ไขได้
 if 'header_title' not in st.session_state:
     st.session_state.header_title = "ใบเบิกสินค้า สาขา"
 if 'company_name_th' not in st.session_state:
@@ -75,7 +73,7 @@ if menu == "📤 อัปโหลดข้อมูล":
     if uploaded_file:
         if st.button("🚀 เริ่มการประมวลผล"):
             try:
-                # การอ่านและ Pivot ข้อมูล
+                # 1. อ่านไฟล์ Raw
                 df_raw = pd.read_excel(uploaded_file)
                 store_col = df_raw.columns[2]
                 item_cols = df_raw.columns[4:].tolist()
@@ -91,20 +89,28 @@ if menu == "📤 อัปโหลดข้อมูล":
                     short_codes[name] = s_code
 
                 df_raw['Clean_Store'] = clean_names
+                
+                # 2. Pivot ข้อมูลสินค้าที่มีการสั่งซื้อจริง
                 df_pivot = df_raw.set_index('Clean_Store')[item_cols].T.reset_index()
                 df_pivot = df_pivot.rename(columns={'index': 'Description'})
                 df_pivot['Description'] = df_pivot['Description'].str.strip()
 
-                # รวมร่างกับ Master (3 รายการแรกไม่หายแน่นอน)
+                # 3. ตรรกะดึงมาให้ครบ (Merge Outer)
                 master_df = pd.DataFrame(st.session_state.master_data)
-                final_df = pd.merge(master_df[['Description']], df_pivot, on='Description', how='left').fillna(0)
+                master_df['Description'] = master_df['Description'].str.strip()
+                
+                # ใช้ outer join เพื่อเอาทั้งที่มีใน Master และที่มีใน Raw Data (แต่ไม่มีใน Master) มาให้ครบ
+                final_df = pd.merge(master_df, df_pivot, on='Description', how='outer').fillna(0)
+                
+                # เรียงลำดับตามมาสเตอร์เดิม (รายการใหม่ที่ไม่มีเลขลำดับจะไปอยู่ท้ายสุด)
+                final_df = final_df.sort_values(by=['#'], ascending=[True], na_position='last')
 
+                # 4. สร้างไฟล์ Excel
                 output = io.BytesIO()
                 with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                     workbook = writer.book
                     sheet = workbook.add_worksheet('ใบเบิก')
                     
-                    # Formatting
                     f_base = {'font_name': 'Cordia New', 'font_size': 14}
                     f_header = workbook.add_format({**f_base, 'bg_color': '#002060', 'font_color': 'white', 'bold': True, 'border': 1, 'align': 'center'})
                     f_grey = workbook.add_format({**f_base, 'bg_color': '#D9D9D9', 'border': 1, 'bold': True, 'align': 'center'})
@@ -112,35 +118,30 @@ if menu == "📤 อัปโหลดข้อมูล":
                     f_rotate = workbook.add_format({**f_base, 'font_size': 11, 'rotation': 45, 'valign': 'bottom', 'align': 'center', 'border': 1})
                     f_red = workbook.add_format({**f_base, 'font_size': 11, 'bg_color': '#FF0000', 'font_color': 'white', 'border': 1, 'align': 'center', 'bold': True})
 
-                    # ส่วนหัวที่ดึงมาจากที่แก้ไขได้
+                    # หัวเอกสาร
                     sheet.merge_range('A1:Z1', st.session_state.header_title, f_header)
                     sheet.write('A2', st.session_state.company_name_th, workbook.add_format(f_base))
                     sheet.write('A3', st.session_state.company_name_en, workbook.add_format(f_base))
 
-                    # Headers ตาราง
                     for i, h in enumerate(['#', 'Item No.', 'Description', 'UNIT']):
                         sheet.write(5, i, h, f_grey)
                         sheet.write(6, i, "", f_border)
 
-                    stores = [c for c in final_df.columns if c != 'Description']
+                    # หัวสาขา
+                    stores = [c for c in final_df.columns if c not in ['#', 'Item No.', 'Description', 'UNIT']]
                     for i, s in enumerate(stores):
                         col_idx = i + 4
                         sheet.write(5, col_idx, s, f_rotate)
                         sheet.write(6, col_idx, short_codes.get(s, ""), f_red)
                         sheet.set_column(col_idx, col_idx, 5)
 
-                    # เนื้อหา
-                    it_map = dict(zip(master_df['Description'].str.strip(), master_df['Item No.'].str.strip()))
-                    un_map = dict(zip(master_df['Description'].str.strip(), master_df['UNIT'].str.strip()))
-                    idx_map = dict(zip(master_df['Description'].str.strip(), master_df['#']))
-
+                    # เขียนข้อมูลบรรทัดสินค้า
                     for i, row in final_df.iterrows():
                         ri = i + 7
-                        d = str(row['Description']).strip()
-                        sheet.write(ri, 0, idx_map.get(d, ""), f_border)
-                        sheet.write(ri, 1, it_map.get(d, ""), f_border)
-                        sheet.write(ri, 2, d, f_border)
-                        sheet.write(ri, 3, un_map.get(d, ""), f_border)
+                        sheet.write(ri, 0, row.get('#', ""), f_border)
+                        sheet.write(ri, 1, row.get('Item No.', "-"), f_border)
+                        sheet.write(ri, 2, row['Description'], f_border)
+                        sheet.write(ri, 3, row.get('UNIT', "-"), f_border) # ถ้าไม่มี Unit ให้ใส่ -
                         for cj, sn in enumerate(stores):
                             sheet.write(ri, cj+4, row[sn], f_border)
 
@@ -148,35 +149,32 @@ if menu == "📤 อัปโหลดข้อมูล":
                     sheet.set_column('D:D', 15)
 
                 st.session_state.ready_file = output.getvalue()
-                st.success("✨ ประมวลผลสำเร็จ!")
+                st.success("✅ ประมวลผลสำเร็จ! รายการมาครบแน่นอน")
             except Exception as e:
                 st.error(f"Error: {e}")
 
     if 'ready_file' in st.session_state:
-        st.download_button("📥 ดาวน์โหลดไฟล์ Excel", st.session_state.ready_file, "Order_Form.xlsx")
+        st.download_button("📥 ดาวน์โหลดไฟล์ Excel", st.session_state.ready_file, "Order_Form_Full.xlsx")
 
 # --- MAIN PAGE: SETTINGS ---
 elif menu == "⚙️ ตั้งค่าระบบ":
     st.header("⚙️ ตั้งค่าระบบ")
     
-    # ส่วนใหม่: แก้ไขหัวเอกสาร
-    st.subheader("📝 แก้ไขข้อมูลหัวใบเบิก (Excel)")
-    with st.expander("คลิกเพื่อแก้ไขชื่อบริษัท/หัวข้อ", expanded=True):
-        new_title = st.text_input("หัวข้อเอกสาร (บรรทัดที่ 1)", st.session_state.header_title)
-        new_th = st.text_input("ชื่อบริษัทภาษาไทย (บรรทัดที่ 2)", st.session_state.company_name_th)
-        new_en = st.text_input("ชื่อบริษัทภาษาอังกฤษ (บรรทัดที่ 3)", st.session_state.company_name_en)
-        
-        if st.button("💾 บันทึกหัวเอกสาร"):
-            st.session_state.header_title = new_title
-            st.session_state.company_name_th = new_th
-            st.session_state.company_name_en = new_en
-            st.toast("บันทึกหัวเอกสารแล้ว!", icon="✅")
+    # แก้ไขหัวเอกสาร
+    st.subheader("📝 แก้ไขข้อมูลหัวใบเบิก")
+    new_title = st.text_input("หัวข้อเอกสาร", st.session_state.header_title)
+    new_th = st.text_input("ชื่อบริษัท (ไทย)", st.session_state.company_name_th)
+    new_en = st.text_input("ชื่อบริษัท (Eng)", st.session_state.company_name_en)
+    
+    if st.button("💾 บันทึกหัวเอกสาร"):
+        st.session_state.header_title = new_title
+        st.session_state.company_name_th = new_th
+        st.session_state.company_name_en = new_en
+        st.success("บันทึกหัวเอกสารแล้ว")
 
     st.markdown("---")
-    
-    # ส่วนเดิม: แก้ไขมาสเตอร์สินค้า
-    st.subheader("📦 จัดการรายการสินค้า Master")
+    st.subheader("📦 จัดการรายการสินค้า Master (ดึงรายการจากที่นี่ก่อน)")
     edited_df = st.data_editor(pd.DataFrame(st.session_state.master_data), num_rows="dynamic", use_container_width=True)
-    if st.button("💾 บันทึกรายการสินค้า"):
+    if st.button("💾 บันทึกรายการ Master"):
         st.session_state.master_data = edited_df.to_dict('records')
-        st.toast("บันทึกรายการสินค้าแล้ว!", icon="✅")
+        st.success("บันทึกรายการสินค้า Master แล้ว")
