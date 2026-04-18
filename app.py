@@ -6,21 +6,44 @@ import io
 # --- CONFIG & UI ---
 st.set_page_config(page_title="BNN | Smart Order System", layout="wide")
 
-# Custom CSS เพื่อความสวยงาม
+# ปรับปรุงสี Text และ Card ให้เข้มและชัดเจน
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500&display=swap');
     html, body, [class*="css"] { font-family: 'Kanit', sans-serif; }
-    .main { background-color: #f8f9fa; }
-    .stMetric { background-color: #ffffff; padding: 15px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border-left: 5px solid #002060; }
-    div.stButton > button { width: 100%; border-radius: 5px; height: 3em; background-color: #002060; color: white; border: none; font-weight: 500; }
-    div.stButton > button:hover { background-color: #003399; color: white; }
-    .status-box { padding: 20px; border-radius: 10px; color: white; margin-bottom: 20px; text-align: center; font-weight: 500; }
+    
+    /* แก้ไขสี Text ใน Metric ให้ดำเข้มอ่านง่าย */
+    [data-testid="stMetricValue"] { color: #001a4d !important; font-weight: 800 !important; font-size: 2.5rem !important; }
+    [data-testid="stMetricLabel"] { color: #000000 !important; font-size: 1.1rem !important; font-weight: 500 !important; }
+    
+    /* ปรับแต่ง Card ขาวตัดขอบน้ำเงิน */
+    div[data-testid="metric-container"] {
+        background-color: #ffffff;
+        padding: 25px;
+        border-radius: 15px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        border-left: 8px solid #002060;
+    }
+
+    /* ตกแต่งปุ่ม */
+    div.stButton > button {
+        background-color: #002060;
+        color: white;
+        border-radius: 10px;
+        padding: 0.5em 1em;
+        font-weight: 500;
+        border: none;
+    }
+    div.stButton > button:hover {
+        background-color: #003399;
+        color: #ffffff;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# --- SESSION STATE (MASTER DATA & HEADERS) ---
+# --- SESSION STATE ---
 if 'master_data' not in st.session_state:
+    # ข้อมูลสินค้ามาสเตอร์
     st.session_state.master_data = [
         {"#": 1, "Item No.": "FG-FZ-0014", "Description": "เนื้อสันคอ", "UNIT": "กิโลกรัม"},
         {"#": 2, "Item No.": "FG-FZ-0037", "Description": "เนื้อวัวออสเตรเลีย", "UNIT": "กิโลกรัม"},
@@ -51,48 +74,40 @@ if 'master_data' not in st.session_state:
         {"#": 27, "Item No.": "FG-FZ-9035", "Description": "ไก่คาราเกะ", "UNIT": "ลัง/10ถุง/1กิโลกรัม"}
     ]
 
-if 'header_title' not in st.session_state:
-    st.session_state.header_title = "ใบเบิกสินค้า สาขา"
-if 'company_name_th' not in st.session_state:
-    st.session_state.company_name_th = "บริษัท บี เอ็น เอ็น เรสเตอรองท์ กรุ๊ป จำกัด"
-if 'company_name_en' not in st.session_state:
-    st.session_state.company_name_en = "Company BNN RESTAURANT GROUP COMPANY LIMITED"
+if 'header_title' not in st.session_state: st.session_state.header_title = "ใบเบิกสินค้า สาขา"
+if 'company_name_th' not in st.session_state: st.session_state.company_name_th = "บริษัท บี เอ็น เอ็น เรสเตอรองท์ กรุ๊ป จำกัด"
+if 'company_name_en' not in st.session_state: st.session_state.company_name_en = "Company BNN RESTAURANT GROUP COMPANY LIMITED"
 
 # --- SIDEBAR ---
 with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/3063/3063822.png", width=80)
     st.title("BNN Group")
-    st.caption("v2.5.0 - Smart Ordering System")
+    st.caption("Order Processing System v2.6")
     st.divider()
-    menu = st.radio("เลือกการทำงาน", ["📊 Dashboard & Upload", "⚙️ ตั้งค่าระบบ"])
+    # ใช้ icon พื้นฐานแทน emoji ซับซ้อนเพื่อเลี่ยง Error
+    menu = st.radio("เมนูหลัก", ["Dashboard", "Settings"])
 
-# --- DASHBOARD & UPLOAD PAGE ---
-if menu == "📊 Dashboard & Upload":
-    st.title("📊 ประมวลผลใบเบิกสินค้า")
+# --- DASHBOARD PAGE ---
+if menu == "Dashboard":
+    st.title("ประมวลผลใบเบิกสินค้า")
     
-    # Overview Cards
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("📦 มาสเตอร์สินค้า", f"{len(st.session_state.master_data)} รายการ")
-    with col2:
-        st.metric("🏢 ข้อมูลสาขา", "พร้อมดึง Trip Code", delta="Short Code")
-    with col3:
-        st.metric("📄 รูปแบบไฟล์", "Excel (XLSX)")
+    # Dashboard Cards
+    col_m1, col_m2, col_m3 = st.columns(3)
+    with col_m1:
+        st.metric(label="สินค้าในมาสเตอร์", value=f"{len(st.session_state.master_data)}")
+    with col_m2:
+        st.metric(label="รหัส Trip Code", value="พร้อมดึง")
+    with col_m3:
+        st.metric(label="รูปแบบไฟล์", value="Excel")
 
     st.divider()
 
-    # Upload Zone
-    with st.expander("📂 ขั้นตอนการใช้งาน", expanded=True):
-        st.write("1. เลือกไฟล์ Raw Data จากระบบ")
-        st.write("2. กดปุ่ม 'ประมวลผล' ระบบจะเรียงลำดับสินค้าตาม Index และนำสินค้าใหม่ไปไว้ท้ายตาราง")
-        st.write("3. ตรวจสอบข้อมูลเบื้องต้นและดาวน์โหลดไฟล์")
-
-    uploaded_file = st.file_uploader("ลากไฟล์มาวางที่นี่ หรือ คลิกเพื่อเลือกไฟล์", type="xlsx")
+    # Upload Section
+    st.subheader("อัปโหลดไฟล์ Raw Data")
+    uploaded_file = st.file_uploader("เลือกไฟล์ .xlsx เพื่อเริ่มงาน", type="xlsx")
     
     if uploaded_file:
-        if st.button("🚀 เริ่มการประมวลผลข้อมูล"):
+        if st.button("🚀 เริ่มการประมวลผล"):
             try:
-                # Processing Logic
                 df_raw = pd.read_excel(uploaded_file)
                 store_col = df_raw.columns[2]
                 item_cols = df_raw.columns[4:].tolist()
@@ -118,28 +133,19 @@ if menu == "📊 Dashboard & Upload":
 
                 merged_df = pd.merge(master_df, df_pivot, on='Description', how='outer')
 
-                # แยกกลุ่มและเรียงลำดับ
+                # บังคับรายการใหม่ไปอยู่ท้ายสุดเสมอ
                 group_a = merged_df[merged_df['#'].notnull()].sort_values(by='#', ascending=True)
                 group_b = merged_df[merged_df['#'].isnull()]
                 final_df = pd.concat([group_a, group_b], ignore_index=True).fillna(0)
 
-                # Show Stats after processing
-                st.divider()
-                st.subheader("✅ ตรวจสอบข้อมูลก่อนดาวน์โหลด")
-                s1, s2, s3 = st.columns(3)
-                s1.success(f"พบข้อมูลการเบิกจาก {len(item_cols)} สาขา")
-                s2.info(f"สินค้าในมาสเตอร์: {len(group_a)} รายการ")
-                s3.warning(f"สินค้าใหม่ (ต่อท้าย): {len(group_b)} รายการ")
+                st.success(f"ประมวลผลสำเร็จ! พบสาขา {len(item_cols)} แห่ง และสินค้าใหม่ {len(group_b)} รายการ")
+                st.dataframe(final_df.head(50), use_container_width=True)
 
-                # Preview Table
-                st.dataframe(final_df.head(10), use_container_width=True)
-
-                # Excel Creation
+                # สร้าง Excel
                 output = io.BytesIO()
                 with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                     workbook = writer.book
                     sheet = workbook.add_worksheet('ใบเบิก')
-                    
                     f_base = {'font_name': 'Cordia New', 'font_size': 14}
                     f_header = workbook.add_format({**f_base, 'bg_color': '#002060', 'font_color': 'white', 'bold': True, 'border': 1, 'align': 'center'})
                     f_grey = workbook.add_format({**f_base, 'bg_color': '#D9D9D9', 'border': 1, 'bold': True, 'align': 'center'})
@@ -147,6 +153,7 @@ if menu == "📊 Dashboard & Upload":
                     f_rotate = workbook.add_format({**f_base, 'font_size': 11, 'rotation': 45, 'valign': 'bottom', 'align': 'center', 'border': 1})
                     f_trip = workbook.add_format({**f_base, 'font_size': 11, 'bg_color': '#FF0000', 'font_color': 'white', 'border': 1, 'align': 'center', 'bold': True})
 
+                    # หัวใบเบิกตามที่ตั้งค่า
                     sheet.merge_range('A1:Z1', st.session_state.header_title, f_header)
                     sheet.write('A2', st.session_state.company_name_th, workbook.add_format(f_base))
                     sheet.write('A3', st.session_state.company_name_en, workbook.add_format(f_base))
@@ -171,49 +178,36 @@ if menu == "📊 Dashboard & Upload":
                         sheet.write(ri, 3, row.get('UNIT', "-") if row.get('UNIT') != 0 else "-", f_border)
                         for cj, sn in enumerate(stores):
                             sheet.write(ri, cj+4, row[sn], f_border)
-
+                    
                     sheet.set_column('C:C', 35)
                     sheet.set_column('D:D', 15)
 
-                st.session_state.ready_file = output.getvalue()
-                st.balloons()
+                st.session_state.final_file = output.getvalue()
             except Exception as e:
-                st.error(f"❌ เกิดข้อผิดพลาด: {str(e)}")
+                st.error(f"Error: {e}")
 
-    if 'ready_file' in st.session_state:
+    if 'final_file' in st.session_state:
         st.divider()
-        st.download_button(
-            label="📥 ดาวน์โหลดไฟล์ใบเบิกสินค้า (Excel)",
-            data=st.session_state.ready_file,
-            file_name="BNN_Final_Order.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+        st.download_button("📥 ดาวน์โหลดไฟล์ใบเบิกสินค้า (Excel)", st.session_state.final_file, "BNN_Order_Form.xlsx")
 
 # --- SETTINGS PAGE ---
-elif menu == "⚙️ ตั้งค่าระบบ":
-    st.title("⚙️ ตั้งค่าระบบ")
+elif menu == "Settings":
+    st.title("ตั้งค่าระบบ")
     
-    with st.tabs(["📝 ข้อมูลหัวใบเบิก", "📦 มาสเตอร์สินค้า & ลำดับ"]):
-        with st.tab("📝 ข้อมูลหัวใบเบิก"):
-            st.subheader("แก้ไขข้อมูลที่จะไปปรากฏที่หัวไฟล์ Excel")
-            col_a, col_b = st.columns(2)
-            with col_a:
-                st.session_state.header_title = st.text_input("หัวข้อเอกสาร (บรรทัดสีน้ำเงิน)", st.session_state.header_title)
-                st.session_state.company_name_th = st.text_input("ชื่อบริษัท (ไทย)", st.session_state.company_name_th)
-            with col_b:
-                st.session_state.company_name_en = st.text_input("ชื่อบริษัท (English)", st.session_state.company_name_en)
-                st.write("")
-                if st.button("💾 บันทึกหัวเอกสาร"):
-                    st.success("บันทึกสำเร็จ ข้อมูลจะเปลี่ยนในไฟล์ดาวน์โหลดครั้งถัดไป")
+    # แก้ไข st.tabs ให้ชื่อเรียบง่ายเพื่อเลี่ยง Error
+    tab1, tab2 = st.tabs(["Header Config", "Master Items"])
+    
+    with tab1:
+        st.subheader("ข้อมูลหัวใบเบิก")
+        st.session_state.header_title = st.text_input("หัวข้อเอกสาร", st.session_state.header_title)
+        st.session_state.company_name_th = st.text_input("ชื่อบริษัท (ไทย)", st.session_state.company_name_th)
+        st.session_state.company_name_en = st.text_input("ชื่อบริษัท (อังกฤษ)", st.session_state.company_name_en)
+        if st.button("บันทึกหัวข้อ"):
+            st.success("บันทึกแล้ว")
 
-        with st.tab("📦 มาสเตอร์สินค้า & ลำดับ"):
-            st.subheader("จัดการลำดับ Index (#) และสินค้าหลัก")
-            st.info("💡 รายการที่ไม่มีเลขลำดับ (#) ในตารางนี้ จะถูกนำไปต่อท้ายสุดของไฟล์ Excel เสมอ")
-            edited_df = st.data_editor(
-                pd.DataFrame(st.session_state.master_data), 
-                num_rows="dynamic", 
-                use_container_width=True
-            )
-            if st.button("💾 บันทึกรายการมาสเตอร์"):
-                st.session_state.master_data = edited_df.to_dict('records')
-                st.success("อัปเดตมาสเตอร์สินค้าเรียบร้อย")
+    with tab2:
+        st.subheader("รายการสินค้าหลัก (Index 1-27)")
+        edited_df = st.data_editor(pd.DataFrame(st.session_state.master_data), num_rows="dynamic", use_container_width=True)
+        if st.button("บันทึกมาสเตอร์"):
+            st.session_state.master_data = edited_df.to_dict('records')
+            st.success("อัปเดตข้อมูลสำเร็จ")
