@@ -6,22 +6,20 @@ import io
 # --- CONFIG ---
 st.set_page_config(page_title="BNN | Smart Order System", layout="wide")
 
-# Custom CSS เพื่อแก้เรื่องสีข้อความ
+# Custom CSS
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500&display=swap');
     html, body, [class*="css"] { font-family: 'Kanit', sans-serif; }
-    .metric-card { 
-        background-color: #ffffff; padding: 20px; border-radius: 10px; 
-        border-left: 5px solid #002060; color: #1f1f1f !important;
-    }
+    .metric-card { background-color: #ffffff; padding: 20px; border-radius: 10px; border-left: 5px solid #002060; color: #1f1f1f !important; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
     .metric-card b { color: #002060 !important; }
     h1, h2, h3 { color: #ffffff !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- MASTER DATA ---
+# --- INITIAL DATA SETUP ---
 if 'master_data' not in st.session_state:
+    # ข้อมูลมาสเตอร์สินค้า 27 รายการ
     st.session_state.master_data = [
         {"#": 1, "Item No.": "FG-FZ-0014", "Description": "เนื้อสันคอ", "UNIT": "กิโลกรัม"},
         {"#": 2, "Item No.": "FG-FZ-0037", "Description": "เนื้อวัวออสเตรเลีย", "UNIT": "กิโลกรัม"},
@@ -52,29 +50,36 @@ if 'master_data' not in st.session_state:
         {"#": 27, "Item No.": "FG-FZ-9035", "Description": "ไก่คาราเกะ", "UNIT": "ลัง/10ถุง/1กิโลกรัม"}
     ]
 
+# ส่วนหัวเอกสารที่ต้องการให้แก้ไขได้
+if 'header_title' not in st.session_state:
+    st.session_state.header_title = "ใบเบิกสินค้า สาขา"
+if 'company_name_th' not in st.session_state:
+    st.session_state.company_name_th = "บริษัท บี เอ็น เอ็น เรสเตอรองท์ กรุ๊ป จำกัด"
+if 'company_name_en' not in st.session_state:
+    st.session_state.company_name_en = "Company BNN RESTAURANT GROUP COMPANY LIMITED"
+
 # --- SIDEBAR ---
 with st.sidebar:
     st.title("BNN Group")
-    menu = st.radio("เมนู", ["📤 อัปโหลดข้อมูล", "⚙️ ตั้งค่าระบบ"])
+    menu = st.radio("เมนูหลัก", ["📤 อัปโหลดข้อมูล", "⚙️ ตั้งค่าระบบ"])
 
-# --- MAIN ---
+# --- MAIN PAGE: UPLOAD ---
 if menu == "📤 อัปโหลดข้อมูล":
     st.header("📤 ประมวลผลใบเบิกสินค้า")
     col1, col2 = st.columns(2)
     with col1: st.markdown('<div class="metric-card"><b>สถานะ</b><br>พร้อมใช้งาน</div>', unsafe_allow_html=True)
     with col2: st.markdown(f'<div class="metric-card"><b>มาสเตอร์สินค้า</b><br>{len(st.session_state.master_data)} รายการ</div>', unsafe_allow_html=True)
     
-    uploaded_file = st.file_uploader("เลือกไฟล์ Raw Data (.xlsx)", type="xlsx")
+    uploaded_file = st.file_uploader("เลือกไฟล์ Raw Data Excel", type="xlsx")
     
     if uploaded_file:
-        if st.button("🚀 เริ่มการแปลงข้อมูล"):
+        if st.button("🚀 เริ่มการประมวลผล"):
             try:
-                # 1. อ่านข้อมูล
+                # การอ่านและ Pivot ข้อมูล
                 df_raw = pd.read_excel(uploaded_file)
                 store_col = df_raw.columns[2]
                 item_cols = df_raw.columns[4:].tolist()
 
-                # 2. จัดการชื่อสาขาและ Short Code
                 short_codes = {}
                 clean_names = []
                 for val in df_raw[store_col]:
@@ -86,80 +91,92 @@ if menu == "📤 อัปโหลดข้อมูล":
                     short_codes[name] = s_code
 
                 df_raw['Clean_Store'] = clean_names
-                
-                # 3. Pivot Data
                 df_pivot = df_raw.set_index('Clean_Store')[item_cols].T.reset_index()
                 df_pivot = df_pivot.rename(columns={'index': 'Description'})
                 df_pivot['Description'] = df_pivot['Description'].str.strip()
 
-                # 4. บังคับรายการสินค้าให้ตรงกับ Master (Reindex)
+                # รวมร่างกับ Master (3 รายการแรกไม่หายแน่นอน)
                 master_df = pd.DataFrame(st.session_state.master_data)
-                master_list = master_df['Description'].str.strip().tolist()
-                
-                # รวมข้อมูลโดยยึดรายการ Master เป็นหลัก (ทำให้ 3 รายการบนไม่หาย)
                 final_df = pd.merge(master_df[['Description']], df_pivot, on='Description', how='left').fillna(0)
 
-                # 5. สร้างไฟล์ Excel
                 output = io.BytesIO()
                 with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                     workbook = writer.book
                     sheet = workbook.add_worksheet('ใบเบิก')
                     
-                    # Styles
+                    # Formatting
                     f_base = {'font_name': 'Cordia New', 'font_size': 14}
                     f_header = workbook.add_format({**f_base, 'bg_color': '#002060', 'font_color': 'white', 'bold': True, 'border': 1, 'align': 'center'})
                     f_grey = workbook.add_format({**f_base, 'bg_color': '#D9D9D9', 'border': 1, 'bold': True, 'align': 'center'})
                     f_border = workbook.add_format({**f_base, 'border': 1})
                     f_rotate = workbook.add_format({**f_base, 'font_size': 11, 'rotation': 45, 'valign': 'bottom', 'align': 'center', 'border': 1})
-                    f_trip = workbook.add_format({**f_base, 'font_size': 11, 'bg_color': '#FF0000', 'font_color': 'white', 'border': 1, 'align': 'center', 'bold': True})
+                    f_red = workbook.add_format({**f_base, 'font_size': 11, 'bg_color': '#FF0000', 'font_color': 'white', 'border': 1, 'align': 'center', 'bold': True})
 
-                    # หัวเอกสาร
-                    sheet.merge_range('A1:Z1', 'ใบเบิกสินค้า สาขา', f_header)
-                    sheet.write('A2', "บริษัท บี เอ็น เอ็น เรสเตอรองท์ กรุ๊ป จำกัด", workbook.add_format(f_base))
-                    sheet.write('A3', "Company BNN RESTAURANT GROUP COMPANY LIMITED", workbook.add_format(f_base))
+                    # ส่วนหัวที่ดึงมาจากที่แก้ไขได้
+                    sheet.merge_range('A1:Z1', st.session_state.header_title, f_header)
+                    sheet.write('A2', st.session_state.company_name_th, workbook.add_format(f_base))
+                    sheet.write('A3', st.session_state.company_name_en, workbook.add_format(f_base))
 
-                    # Headers
+                    # Headers ตาราง
                     for i, h in enumerate(['#', 'Item No.', 'Description', 'UNIT']):
                         sheet.write(5, i, h, f_grey)
                         sheet.write(6, i, "", f_border)
 
-                    stores = [c for c in final_df.columns if c not in ['Description']]
+                    stores = [c for c in final_df.columns if c != 'Description']
                     for i, s in enumerate(stores):
                         col_idx = i + 4
                         sheet.write(5, col_idx, s, f_rotate)
-                        sheet.write(6, col_idx, short_codes.get(s, ""), f_trip)
+                        sheet.write(6, col_idx, short_codes.get(s, ""), f_red)
                         sheet.set_column(col_idx, col_idx, 5)
 
-                    # เขียนข้อมูล
-                    idx_map = dict(zip(master_df['Description'].str.strip(), master_df['#']))
+                    # เนื้อหา
                     it_map = dict(zip(master_df['Description'].str.strip(), master_df['Item No.'].str.strip()))
                     un_map = dict(zip(master_df['Description'].str.strip(), master_df['UNIT'].str.strip()))
+                    idx_map = dict(zip(master_df['Description'].str.strip(), master_df['#']))
 
                     for i, row in final_df.iterrows():
                         ri = i + 7
-                        desc = str(row['Description']).strip()
-                        sheet.write(ri, 0, idx_map.get(desc, ""), f_border)
-                        sheet.write(ri, 1, it_map.get(desc, ""), f_border)
-                        sheet.write(ri, 2, desc, f_border)
-                        sheet.write(ri, 3, un_map.get(desc, ""), f_border)
-                        for cj, sname in enumerate(stores):
-                            sheet.write(ri, cj+4, row[sname], f_border)
+                        d = str(row['Description']).strip()
+                        sheet.write(ri, 0, idx_map.get(d, ""), f_border)
+                        sheet.write(ri, 1, it_map.get(d, ""), f_border)
+                        sheet.write(ri, 2, d, f_border)
+                        sheet.write(ri, 3, un_map.get(d, ""), f_border)
+                        for cj, sn in enumerate(stores):
+                            sheet.write(ri, cj+4, row[sn], f_border)
 
                     sheet.set_column('C:C', 35)
                     sheet.set_column('D:D', 15)
 
                 st.session_state.ready_file = output.getvalue()
-                st.success("✅ ประมวลผลสำเร็จ!")
+                st.success("✨ ประมวลผลสำเร็จ!")
             except Exception as e:
                 st.error(f"Error: {e}")
 
     if 'ready_file' in st.session_state:
-        st.download_button("📥 ดาวน์โหลดไฟล์ Excel", st.session_state.ready_file, "BNN_Order_Form.xlsx")
+        st.download_button("📥 ดาวน์โหลดไฟล์ Excel", st.session_state.ready_file, "Order_Form.xlsx")
 
+# --- MAIN PAGE: SETTINGS ---
 elif menu == "⚙️ ตั้งค่าระบบ":
-    st.header("⚙️ ตั้งค่ามาสเตอร์สินค้า")
-    st.write("ลำดับสินค้าที่ปรากฏในตารางนี้ จะถูกใช้เป็นลำดับเดียวกันในไฟล์ Excel ที่โหลดออกมา")
+    st.header("⚙️ ตั้งค่าระบบ")
+    
+    # ส่วนใหม่: แก้ไขหัวเอกสาร
+    st.subheader("📝 แก้ไขข้อมูลหัวใบเบิก (Excel)")
+    with st.expander("คลิกเพื่อแก้ไขชื่อบริษัท/หัวข้อ", expanded=True):
+        new_title = st.text_input("หัวข้อเอกสาร (บรรทัดที่ 1)", st.session_state.header_title)
+        new_th = st.text_input("ชื่อบริษัทภาษาไทย (บรรทัดที่ 2)", st.session_state.company_name_th)
+        new_en = st.text_input("ชื่อบริษัทภาษาอังกฤษ (บรรทัดที่ 3)", st.session_state.company_name_en)
+        
+        if st.button("💾 บันทึกหัวเอกสาร"):
+            st.session_state.header_title = new_title
+            st.session_state.company_name_th = new_th
+            st.session_state.company_name_en = new_en
+            st.toast("บันทึกหัวเอกสารแล้ว!", icon="✅")
+
+    st.markdown("---")
+    
+    # ส่วนเดิม: แก้ไขมาสเตอร์สินค้า
+    st.subheader("📦 จัดการรายการสินค้า Master")
     edited_df = st.data_editor(pd.DataFrame(st.session_state.master_data), num_rows="dynamic", use_container_width=True)
-    if st.button("💾 บันทึกมาสเตอร์"):
+    if st.button("💾 บันทึกรายการสินค้า"):
         st.session_state.master_data = edited_df.to_dict('records')
-        st.success("บันทึกสำเร็จ!")
+        st.toast("บันทึกรายการสินค้าแล้ว!", icon="✅")
