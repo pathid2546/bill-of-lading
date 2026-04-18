@@ -6,85 +6,76 @@ import io
 # --- CONFIG & ASSETS ---
 st.set_page_config(page_title="BNN | Smart Order System", layout="wide", initial_sidebar_state="expanded")
 
-# ปรับปรุง CSS ให้สีข้อความชัดเจนขึ้น
+# Custom CSS สำหรับแก้ไขเรื่องสีข้อความ
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500&display=swap');
-    
-    /* บังคับฟอนต์ทั้งแอป */
     html, body, [class*="css"] { font-family: 'Kanit', sans-serif; }
     
-    /* ปรับแต่ง Metric Card ให้ข้อความเป็นสีดำชัดเจนตัดกับพื้นขาว */
+    /* แก้ไขสีข้อความใน Card ให้ชัดเจน */
     .metric-card { 
         background-color: #ffffff; 
         padding: 20px; 
         border-radius: 10px; 
         border-left: 5px solid #002060; 
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        color: #1f1f1f !important; /* บังคับสีข้อความเข้ม */
+        color: #1f1f1f !important;
     }
-    .metric-card b { color: #002060 !important; }
-    .metric-value { font-size: 20px; font-weight: 500; color: #1f1f1f !important; }
+    .metric-card b { color: #002060 !important; font-size: 16px; }
+    .metric-value { font-size: 24px; font-weight: 500; color: #1f1f1f !important; }
     
-    /* ปุ่มกดให้เด่นชัด */
+    /* ปรับสีปุ่มให้สว่างและอ่านง่าย */
     .stButton>button { 
-        width: 100%; 
-        border-radius: 8px; 
-        height: 3.5em; 
-        background-color: #002060; 
-        color: white !important; 
-        border: none; 
-        font-weight: 500;
-        margin-top: 10px;
+        width: 100%; border-radius: 8px; height: 3.5em; 
+        background-color: #002060; color: white !important; 
+        font-weight: 500; border: none;
     }
-    .stButton>button:hover { background-color: #003399; color: white !important; }
     
-    /* ปรับสีหัวข้อให้สว่างขึ้นเมื่ออยู่ใน Dark Mode */
+    /* บังคับสี Header ให้เห็นชัดใน Dark Mode */
     h1, h2, h3 { color: #ffffff !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- INITIAL DATA ---
+# --- INITIAL MASTER DATA (3 รายการบนต้องอยู่ครบ)
+DEFAULT_ITEMS = [
+    {"#": 1, "Item No.": "FG-FZ-0014", "Description": "เนื้อสันคอ", "UNIT": "กิโลกรัม"},
+    {"#": 2, "Item No.": "FG-FZ-0037", "Description": "เนื้อวัวออสเตรเลีย", "UNIT": "กิโลกรัม"},
+    {"#": 3, "Item No.": "FG-FZ-0021", "Description": "สันคอหมู", "UNIT": "กิโลกรัม"},
+    {"#": 4, "Item No.": "FG-FZ-0019", "Description": "หมูสามชั้น", "UNIT": "กิโลกรัม"},
+    {"#": 5, "Item No.": "FG-FZ-0020", "Description": "หมูสันนอก", "UNIT": "กิโลกรัม"},
+    {"#": 6, "Item No.": "FG-FZ-0009", "Description": "ปูอัด", "UNIT": "ลัง"},
+    {"#": 7, "Item No.": "FG-FZ-0010", "Description": "ปูอัดชีส", "UNIT": "ลัง"},
+    {"#": 8, "Item No.": "FG-FZ-0012", "Description": "ชีสมอสซาเรลล่า", "UNIT": "ลัง"},
+    {"#": 9, "Item No.": "FG-FF-0002", "Description": "น้ำจิ้มสุกี้", "UNIT": "แร็ค (8 ถุง)"},
+    {"#": 10, "Item No.": "FG-FZ-0028", "Description": "เกี๊ยวผักโขม", "UNIT": "ลัง"},
+    {"#": 11, "Item No.": "FG-FZ-0033", "Description": "ไก่กรอบ", "UNIT": "ลัง"},
+    {"#": 12, "Item No.": "FG-FZ-0042", "Description": "สาหร่ายวากาเมะ (แช่แข็ง)", "UNIT": "ลัง"},
+    {"#": 13, "Item No.": "FG-CH-0024", "Description": "หัวเชื้อน้ำซุปหม่าล่า", "UNIT": "ลัง"},
+    {"#": 14, "Item No.": "FG-FZ-0091", "Description": "ปลาเส้น (แช่แข็ง)", "UNIT": "ลัง"},
+    {"#": 15, "Item No.": "FG-CH-0026", "Description": "ไส้กรอกแดง", "UNIT": "ลัง"},
+    {"#": 16, "Item No.": "FG-FZ-0120", "Description": "คิมมาริ", "UNIT": "ลัง/10 กก."},
+    {"#": 17, "Item No.": "FG-FZ-0129", "Description": "เกี๊ยวกุ้ง", "UNIT": "ลัง/12ถาด/1กิโลกรัม"},
+    {"#": 18, "Item No.": "FG-CH-0057", "Description": "น้ำจิ้มสุกี้สูตรโบราณ (ถุง2กก.)", "UNIT": "แร็ค/8ถุง/2 กก"},
+    {"#": 19, "Item No.": "FG-CH-0060", "Description": "หัวเชื้อน้ำซุปแจ่วฮ้อน (ถุง 5 กก.)", "UNIT": "ลัง/4 ถุง"},
+    {"#": 20, "Item No.": "FG-FZ-0133", "Description": "เป็ดย่างพร้อมน้ำราด ตราดาลี", "UNIT": "ลัง/8 แพ็ค"},
+    {"#": 21, "Item No.": "FG-CH-0062", "Description": "น้ำจิ้มเป็ด (ถุง 1 กก)", "UNIT": "ลัง/12ถุง"},
+    {"#": 22, "Item No.": "FG-CH-0061", "Description": "น้ำจิ้มพอนสึ ยูสุ (ถุง 2 กก.)", "UNIT": "แร็ค/6ถุง"},
+    {"#": 23, "Item No.": "FG-FZ-0144", "Description": "หอยแมลงภู่ชิลี NW 100%", "UNIT": "ลัง/1ถุง/10กิโลกรัม"},
+    {"#": 24, "Item No.": "FG-FZ-0145", "Description": "เฟรนฟราย 7.4 mm", "UNIT": "ลัง/4แพ็ค/2.5กก."},
+    {"#": 25, "Item No.": "FG-FZ-0143", "Description": "ลูกชิ้นหยดน้ำไส้ไข่ปลา", "UNIT": "ลัง/10กก."},
+    {"#": 26, "Item No.": "FG-FZ-0147", "Description": "ปลาดอลลี่ NW 70%", "UNIT": "ลัง/10กก."},
+    {"#": 27, "Item No.": "FG-FZ-9035", "Description": "ไก่คาราเกะ", "UNIT": "ลัง/10ถุง/1กิโลกรัม"}
+]
+
 if 'master_data' not in st.session_state:
-    # รวบรวมข้อมูลจากรูปภาพต้นฉบับ
-    st.session_state.master_data = [
-        {"#": 1, "Item No.": "FG-FZ-0014", "Description": "เนื้อสันคอ", "UNIT": "กิโลกรัม"},
-        {"#": 2, "Item No.": "FG-FZ-0037", "Description": "เนื้อวัวออสเตรเลีย", "UNIT": "กิโลกรัม"},
-        {"#": 3, "Item No.": "FG-FZ-0021", "Description": "สันคอหมู", "UNIT": "กิโลกรัม"},
-        {"#": 4, "Item No.": "FG-FZ-0019", "Description": "หมูสามชั้น", "UNIT": "กิโลกรัม"},
-        {"#": 5, "Item No.": "FG-FZ-0020", "Description": "หมูสันนอก", "UNIT": "กิโลกรัม"},
-        {"#": 6, "Item No.": "FG-FZ-0009", "Description": "ปูอัด", "UNIT": "ลัง"},
-        {"#": 7, "Item No.": "FG-FZ-0010", "Description": "ปูอัดชีส", "UNIT": "ลัง"},
-        {"#": 8, "Item No.": "FG-FZ-0012", "Description": "ชีสมอสซาเรลล่า", "UNIT": "ลัง"},
-        {"#": 9, "Item No.": "FG-FF-0002", "Description": "น้ำจิ้มสุกี้", "UNIT": "แร็ค (8 ถุง)"},
-        {"#": 10, "Item No.": "FG-FZ-0028", "Description": "เกี๊ยวผักโขม", "UNIT": "ลัง"},
-        {"#": 11, "Item No.": "FG-FZ-0033", "Description": "ไก่กรอบ", "UNIT": "ลัง"},
-        {"#": 12, "Item No.": "FG-FZ-0042", "Description": "สาหร่ายวากาเมะ (แช่แข็ง)", "UNIT": "ลัง"},
-        {"#": 13, "Item No.": "FG-CH-0024", "Description": "หัวเชื้อน้ำซุปหม่าล่า", "UNIT": "ลัง"},
-        {"#": 14, "Item No.": "FG-FZ-0091", "Description": "ปลาเส้น (แช่แข็ง)", "UNIT": "ลัง"},
-        {"#": 15, "Item No.": "FG-CH-0026", "Description": "ไส้กรอกแดง", "UNIT": "ลัง"},
-        {"#": 16, "Item No.": "FG-FZ-0120", "Description": "คิมมาริ", "UNIT": "ลัง/10 กก."},
-        {"#": 17, "Item No.": "FG-FZ-0129", "Description": "เกี๊ยวกุ้ง", "UNIT": "ลัง/12ถาด/1กิโลกรัม"},
-        {"#": 18, "Item No.": "FG-CH-0057", "Description": "น้ำจิ้มสุกี้สูตรโบราณ (ถุง2กก.)", "UNIT": "แร็ค/8ถุง/2 กก"},
-        {"#": 19, "Item No.": "FG-CH-0060", "Description": "หัวเชื้อน้ำซุปแจ่วฮ้อน (ถุง 5 กก.)", "UNIT": "ลัง/4 ถุง"},
-        {"#": 20, "Item No.": "FG-FZ-0133", "Description": "เป็ดย่างพร้อมน้ำราด ตราดาลี", "UNIT": "ลัง/8 แพ็ค"},
-        {"#": 21, "Item No.": "FG-CH-0062", "Description": "น้ำจิ้มเป็ด (ถุง 1 กก)", "UNIT": "ลัง/12ถุง"},
-        {"#": 22, "Item No.": "FG-CH-0061", "Description": "น้ำจิ้มพอนสึ ยูสุ (ถุง 2 กก.)", "UNIT": "แร็ค/6ถุง"},
-        {"#": 23, "Item No.": "FG-FZ-0144", "Description": "หอยแมลงภู่ชิลี NW 100%", "UNIT": "ลัง/1ถุง/10กิโลกรัม"},
-        {"#": 24, "Item No.": "FG-FZ-0145", "Description": "เฟรนฟราย 7.4 mm", "UNIT": "ลัง/4แพ็ค/2.5กก."},
-        {"#": 25, "Item No.": "FG-FZ-0143", "Description": "ลูกชิ้นหยดน้ำไส้ไข่ปลา", "UNIT": "ลัง/10กก."},
-        {"#": 26, "Item No.": "FG-FZ-0147", "Description": "ปลาดอลลี่ NW 70%", "UNIT": "ลัง/10กก."},
-        {"#": 27, "Item No.": "FG-FZ-9035", "Description": "ไก่คาราเกะ", "UNIT": "ลัง/10ถุง/1กิโลกรัม"}
-    ]
+    st.session_state.master_data = DEFAULT_ITEMS
 
 # --- SIDEBAR ---
 with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/4090/4090434.png", width=80)
-    st.title("น้องเดียร์บิลลิ่ง.จำกัด")
+    st.image("https://cdn-icons-png.flaticon.com/512/4090/4090434.png", width=70)
+    st.title("น้องเดียร์ ออกใบเบิก")
     st.markdown("---")
     menu = st.radio("เมนูหลัก", ["📤 อัปโหลดข้อมูล", "⚙️ ตั้งค่าระบบ"])
-    st.markdown("---")
-    st.caption("v2.2.1 - UI Fixed Build")
 
 # --- MAIN PAGE ---
 if menu == "📤 อัปโหลดข้อมูล":
@@ -92,108 +83,81 @@ if menu == "📤 อัปโหลดข้อมูล":
     
     col1, col2 = st.columns(2)
     with col1:
-        st.markdown(f'''
-            <div class="metric-card">
-                <b>สถานะระบบ</b><br>
-                <span style="color:#28a745; font-weight:bold;">● พร้อมใช้งาน</span>
-            </div>
-        ''', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-card"><b>สถานะ</b><br><span style="color:#28a745">● พร้อมใช้งาน</span></div>', unsafe_allow_html=True)
     with col2:
-        st.markdown(f'''
-            <div class="metric-card">
-                <b>สินค้าในฐานข้อมูล</b><br>
-                <span class="metric-value">{len(st.session_state.master_data)} รายการ</span>
-            </div>
-        ''', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-card"><b>สินค้าในระบบ</b><br><span class="metric-value">{len(st.session_state.master_data)} รายการ</span></div>', unsafe_allow_html=True)
     
-    st.write("")
-    uploaded_file = st.file_uploader("เลือกไฟล์ Raw Data Excel", type="xlsx")
+    uploaded_file = st.file_uploader("", type="xlsx")
     
     if uploaded_file:
-        if st.button("🚀 เริ่มการประมวลผลไฟล์"):
-            with st.spinner('กำลังจัดรูปแบบข้อมูล...'):
+        if st.button("🚀 แปลงข้อมูลใบเบิก"):
+            with st.spinner('กำลังจัดทำไฟล์ Excel...'):
                 try:
                     df_raw = pd.read_excel(uploaded_file)
                     store_col = df_raw.columns[2]
-                    # ดึงรหัส Trip จากรูปภาพอ้างอิง
                     item_cols = df_raw.columns[4:].tolist()
 
                     short_codes = {}
-                    clean_store_names = []
+                    clean_names = []
                     for val in df_raw[store_col]:
                         v_str = str(val)
                         match = re.search(r'\((.*?)\)', v_str)
                         s_code = match.group(1) if match else ""
                         name = re.sub(r'\(.*?\)', '', v_str).strip()
-                        clean_store_names.append(name)
+                        clean_names.append(name)
                         short_codes[name] = s_code
 
-                    df_raw['Clean_Store'] = clean_store_names
-                    df_pivot = df_raw.set_index('Clean_Store')[item_cols].T.reset_index()
-                    df_pivot = df_pivot.rename(columns={'index': 'Description'}).drop_duplicates(subset=['Description']).fillna(0)
+                    df_raw['Clean_Store'] = clean_names
+                    df_piv = df_raw.set_index('Clean_Store')[item_cols].T.reset_index()
+                    df_piv = df_piv.rename(columns={'index': 'Description'}).fillna(0)
 
-                    master_df = pd.DataFrame(st.session_state.master_data)
-                    idx_map = dict(zip(master_df['Description'].str.strip(), master_df['#']))
-                    it_map = dict(zip(master_df['Description'].str.strip(), master_df['Item No.'].str.strip()))
-                    un_map = dict(zip(master_df['Description'].str.strip(), master_df['UNIT'].str.strip()))
+                    # Mapping
+                    m_df = pd.DataFrame(st.session_state.master_data)
+                    idx_m = dict(zip(m_df['Description'].str.strip(), m_df['#']))
+                    it_m = dict(zip(m_df['Description'].str.strip(), m_df['Item No.'].str.strip()))
+                    un_m = dict(zip(m_df['Description'].str.strip(), m_df['UNIT'].str.strip()))
 
                     output = io.BytesIO()
                     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                         workbook = writer.book
-                        sheet = workbook.add_worksheet('ใบเบิกสินค้า')
-
+                        sheet = workbook.add_worksheet('ใบเบิก')
                         f_base = {'font_name': 'Cordia New', 'font_size': 14}
                         f_h = workbook.add_format({**f_base, 'bg_color': '#002060', 'font_color': 'white', 'bold': True, 'border': 1, 'align': 'center'})
-                        f_r = workbook.add_format({**f_base, 'font_size': 11, 'bg_color': '#FF0000', 'font_color': 'white', 'border': 1, 'align': 'center', 'bold': True})
-                        f_rot = workbook.add_format({**f_base, 'font_size': 11, 'rotation': 45, 'valign': 'bottom', 'align': 'center', 'border': 1})
                         f_b = workbook.add_format({**f_base, 'border': 1})
-                        f_g = workbook.add_format({**f_base, 'bg_color': '#D9D9D9', 'border': 1, 'bold': True, 'align': 'center'})
-
-                        sheet.merge_range('A1:Z1', 'ใบเบิกสินค้า สาขา', f_h)
-                        sheet.write('A2', "บริษัท บี เอ็น เอ็น เรสเตอรองท์ กรุ๊ป จำกัด", workbook.add_format(f_base))
-                        sheet.write('A3', "Company BNN RESTAURANT GROUP COMPANY LIMITED", workbook.add_format(f_base))
-
+                        
+                        sheet.merge_range('A1:Z1', 'ใบเบิกสินค้า', f_h)
                         for i, h in enumerate(['#', 'Item No.', 'Description', 'UNIT']):
-                            sheet.write(5, i, h, f_g)
-                            sheet.write(6, i, "", f_b)
+                            sheet.write(5, i, h, f_h)
 
-                        stores = [c for c in df_pivot.columns if c != 'Description']
+                        stores = [c for c in df_piv.columns if c != 'Description']
                         for i, s in enumerate(stores):
-                            ci = i + 4
-                            sheet.write(5, ci, s, f_rot)
-                            sheet.write(6, ci, short_codes.get(s, ""), f_r)
-                            sheet.set_column(ci, ci, 5)
+                            sheet.write(5, i+4, s, f_h)
 
-                        for i, row in df_pivot.iterrows():
+                        for i, row in df_piv.iterrows():
                             ri = i + 7
                             d = str(row['Description']).strip()
-                            sheet.write(ri, 0, idx_map.get(d, i+1), f_b)
-                            sheet.write(ri, ri, it_map.get(d, "-"), f_b) # แก้ไขตำแหน่ง Column
-                            sheet.write(ri, 1, it_map.get(d, "-"), f_b)
+                            sheet.write(ri, 0, idx_m.get(d, i+1), f_b)
+                            sheet.write(ri, 1, it_m.get(d, "-"), f_b)
                             sheet.write(ri, 2, d, f_b)
-                            sheet.write(ri, 3, un_map.get(d, "-"), f_b)
-                            for cj, st_name in enumerate(stores):
-                                sheet.write(ri, cj + 4, row[st_name], f_b)
-
-                        sheet.set_column('C:C', 35)
-                        sheet.set_column('D:D', 20)
+                            sheet.write(ri, 3, un_m.get(d, "-"), f_b)
+                            for cj, sn in enumerate(stores):
+                                sheet.write(ri, cj+4, row[sn], f_b)
 
                     st.session_state.ready_file = output.getvalue()
-                    st.success("✨ ประมวลผลสำเร็จ!")
-                    st.balloons()
+                    st.success("ประมวลผลเสร็จสิ้น!")
                 except Exception as e:
-                    st.error(f"เกิดข้อผิดพลาด: {e}")
+                    st.error(f"Error: {e}")
 
-        if 'ready_file' in st.session_state:
-            st.write("")
-            st.download_button("📥 ดาวน์โหลดไฟล์ Excel ผลลัพธ์", st.session_state.ready_file, "BNN_Order_Form.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    if 'ready_file' in st.session_state:
+        st.download_button("📥 ดาวน์โหลดไฟล์ Excel", st.session_state.ready_file, "Order.xlsx")
 
 elif menu == "⚙️ ตั้งค่าระบบ":
-    st.header("⚙️ ตั้งค่ามาสเตอร์ไฟล์")
-    st.info("แก้ไขรหัสสินค้า หรือหน่วยนับได้ที่นี่ ข้อมูลจะถูกบันทึกไว้ใช้งานในการอัปโหลดครั้งถัดไป")
+    st.header("⚙️ จัดการรายการสินค้า")
+    st.write("คุณสามารถแก้ไขลำดับ (#), รหัสสินค้า และหน่วยนับ ได้ที่นี่ (3 รายการแรกอยู่ด้านบนสุด)")
     
+    # ตารางแก้ไข
     edited_df = st.data_editor(pd.DataFrame(st.session_state.master_data), num_rows="dynamic", use_container_width=True)
     
     if st.button("💾 บันทึกการเปลี่ยนแปลง"):
         st.session_state.master_data = edited_df.to_dict('records')
-        st.toast("บันทึกสำเร็จ!", icon="✅")
+        st.toast("บันทึกข้อมูลสำเร็จ!", icon="✅")
