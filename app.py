@@ -58,19 +58,26 @@ if uploaded_file:
     if st.button("🚀 เริ่มประมวลผลไฟล์"):
         with st.spinner('กำลังประมวลผล...'):
             try:
-                # 1. อ่านไฟล์และสร้าง Item No. Mapping
+                # 1. อ่านไฟล์ Raw Data
                 df_raw = pd.read_excel(uploaded_file)
                 
-                # เก็บ mapping ระหว่าง Description -> Item No. จากไฟล์ต้นฉบับ
-                # สมมติว่า Item No. อยู่ในคอลัมน์ Index ที่ 1 (ถ้าไม่ใช่ ให้แก้เลข 1 เป็นชื่อคอลัมน์)
-                item_no_col = df_raw.columns[3] 
-                desc_col = df_raw.columns[0] # หรือชื่อคอลัมน์สินค้า
-                item_no_map = dict(zip(df_raw[desc_col], df_raw[item_no_col]))
+                # ดึงข้อมูลจากคอลัมน์ Trip (คอลัมน์ที่ 4 หรือ Index 3)
+                # และชื่อสินค้าจากคอลัมน์แรกๆ เพื่อทำ Mapping
+                trip_col = df_raw.columns[3] # คอลัมน์ D คือ Trip
+                desc_col = None
+                for col in df_raw.columns:
+                    if any(x in str(col).lower() for x in ['desc', 'รายการ', 'ชื่อสินค้า']):
+                        desc_col = col
+                        break
+                if not desc_col: desc_col = df_raw.columns[0]
 
-                store_col_original = df_raw.columns[2]
-                item_headers = df_raw.columns[4:].tolist()
+                # สร้าง Map ระหว่าง ชื่อสินค้า -> Trip No. เพื่อเอาไปใส่ในช่อง Item No.
+                trip_map = dict(zip(df_raw[desc_col].astype(str), df_raw[trip_col].astype(str)))
 
-                # 2. แยก Short Code และจัดกลุ่มสาขา
+                # 2. เตรียมข้อมูลสาขาและทำ Pivot
+                store_col_original = df_raw.columns[2] # STORE NAME
+                item_headers = df_raw.columns[4:].tolist() # รายการสินค้าเริ่มตั้งแต่คอลัมน์ที่ 5 เป็นต้นไป
+
                 short_codes = {}
                 clean_names = []
                 for val in df_raw[store_col_original]:
@@ -98,36 +105,40 @@ if uploaded_file:
                     f_border = workbook.add_format({**f_base, 'border': 1})
                     f_grey_head = workbook.add_format({**f_base, 'bg_color': '#D9D9D9', 'border': 1, 'bold': True, 'align': 'center'})
 
-                    # เขียนส่วนหัว
+                    # เขียนส่วนหัวบริษัท
                     sheet.merge_range('A1:Z1', 'ใบเบิกสินค้า สาขา', f_header)
                     sheet.write('A2', comp_th, workbook.add_format(f_base))
                     sheet.write('A3', comp_en, workbook.add_format(f_base))
 
-                    # หัวตารางหลัก (แถวที่ 6)
+                    # หัวตารางหลัก
                     headers = ['#', 'Item No.', 'Description', 'UNIT']
                     for i, h in enumerate(headers):
                         sheet.write(5, i, h, f_grey_head)
-                        sheet.write(6, i, "", f_border) # แถวที่ 7 ใต้หัวข้อหลักให้ว่าง
+                        sheet.write(6, i, "", f_border)
 
                     stores = [c for c in df_pivot.columns if c != 'Description']
                     for i, s in enumerate(stores):
                         c_idx = i + 4
                         sheet.write(5, c_idx, s, f_rotate)
-                        sheet.write(6, c_idx, short_codes.get(s, ""), f_red) # แถวที่ 7: Short Code สีแดง
+                        sheet.write(6, c_idx, short_codes.get(s, ""), f_red) # แถวสีแดง Short Code
                         sheet.set_column(c_idx, c_idx, 5)
 
-                    # เขียนข้อมูลสินค้า (เริ่มแถวที่ 8)
+                    # เขียนข้อมูลสินค้า
                     for r_idx, row in df_pivot.iterrows():
                         e_row = r_idx + 7
-                        desc = row['Description']
+                        desc_val = str(row['Description'])
                         
-                        sheet.write(e_row, 0, r_idx + 1, f_border) # ลำดับ (#)
-                        sheet.write(e_row, 1, item_no_map.get(desc, ""), f_border) # Item No. ดึงจากรหัสสินค้าต้นฉบับ
-                        sheet.write(e_row, 2, desc, f_border) # รายการสินค้า
-                        sheet.write(e_row, 3, unit_map.get(desc, "-"), f_border) # หน่วย (UNIT)
+                        sheet.write(e_row, 0, r_idx + 1, f_border)
+                        # ดึงค่าจากช่อง Trip ใน Raw Data มาใส่ในคอลัมน์ Item No.
+                        sheet.write(e_row, 1, trip_map.get(desc_val, ""), f_border) 
+                        sheet.write(e_row, 2, desc_val, f_border)
+                        sheet.write(e_row, 3, unit_map.get(desc_val, "-"), f_border)
                         
                         for c_idx, s in enumerate(stores):
                             sheet.write(e_row, c_idx + 4, row[s], f_border)
+
+                    sheet.set_column('C:C', 35)
+                    sheet.set_column('D:D', 20)
 
                 st.session_state.download_ready = output.getvalue()
                 st.success("✅ ประมวลผลสำเร็จ!")
