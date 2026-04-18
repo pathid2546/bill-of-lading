@@ -4,7 +4,7 @@ import re
 import io
 
 # --- CONFIG & MODERN DARK THEME ---
-st.set_page_config(page_title="BNN | Smart Order", layout="wide")
+st.set_page_config(page_title="Nong Deer | Smart Order", layout="wide")
 
 # CSS สำหรับ Theme มืดแต่สดใสและอ่านง่าย
 st.markdown("""
@@ -106,12 +106,12 @@ if 'master_data' not in st.session_state:
     ]
 
 if 'h_title' not in st.session_state: st.session_state.h_title = "ใบเบิกสินค้า สาขา"
-if 'c_th' not in st.session_state: st.session_state.c_th = "บริษัท บี เอ็น เอ็น เรสเตอรองท์ กรุ๊ป จำกัด"
-if 'c_en' not in st.session_state: st.session_state.c_en = "Company BNN RESTAURANT GROUP COMPANY LIMITED"
+if 'c_th' not in st.session_state: st.session_state.c_th = "บริษัท "
+if 'c_en' not in st.session_state: st.session_state.c_en = "Company "
 
 # --- SIDEBAR NAVIGATION ---
 with st.sidebar:
-    st.markdown("## 🍱 BNN Smart")
+    st.markdown("## 🍱 น้องเดียร์ออกใบเบิก 1.0")
     st.divider()
     # ปรับชื่อเมนูให้สั้นและไม่มีอักขระพิเศษเพื่อความเสถียร
     menu = st.radio("Navigation", ["Dashboard", "Settings"])
@@ -216,7 +216,7 @@ if menu == "Dashboard":
 
     if 'excel_data' in st.session_state:
         st.divider()
-        st.download_button("🎁 ดาวน์โหลดไฟล์ Excel", st.session_state.excel_data, "BNN_Final_Order.xlsx")
+        st.download_button("🎁 ดาวน์โหลดไฟล์ Excel", st.session_state.excel_data, "Final_Order.xlsx")
 
 # --- SETTINGS ---
 elif menu == "Settings":
