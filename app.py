@@ -3,7 +3,7 @@ import pandas as pd
 import io
 
 # --- UI CONFIG ---
-st.set_page_config(page_title="BNN | Strict Final v3.6", layout="wide")
+st.set_page_config(page_title="BNN | System v3.7", layout="wide")
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600&display=swap');
@@ -12,12 +12,12 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-st.title("🥩 ระบบจัดการใบเบิก v3.6 (Order: จบที่รายการข้อมูล)")
+st.title("🥩 ระบบจัดการใบเบิก v3.7 (คืนค่า Total หน้าจัดกล่อง)")
 
 file = st.file_uploader("📥 อัปโหลดไฟล์ใบเบิกสินค้า (Raw Data)", type=["xlsx", "csv"])
 
 if file:
-    if st.button("🚀 ประมวลผล"):
+    if st.button("🚀 ประมวลผลไฟล์"):
         try:
             # 1. อ่านข้อมูล
             raw_df = pd.read_csv(file, header=None) if file.name.endswith('.csv') else pd.read_excel(file, header=None)
@@ -30,7 +30,7 @@ if file:
                 df_clean.columns = [str(c).strip() for c in df_clean.columns]
                 store_cols = [c for c in df_clean.columns[4:] if "Unnamed" not in c]
 
-                # 2. เตรียมข้อมูล (Long Format)
+                # 2. จัดการ Data
                 all_rows = []
                 for _, row in df_clean.iterrows():
                     product = str(row.get('Description', '')).strip()
@@ -52,7 +52,6 @@ if file:
                     full_df = pd.DataFrame(all_rows)
                     meat_kw = ['เนื้อ', 'หมู', 'Meat', 'Pork']
                     
-                    # Matrix 3 ส่วน
                     m_weight = full_df[full_df['Product'].str.contains('|'.join(meat_kw), na=False)].pivot_table(index=['TRIP', 'STORE NAME'], columns='Product', values='Qty', aggfunc='sum').fillna(0).reset_index()
                     m_box = full_df[~full_df['Product'].str.contains('|'.join(meat_kw), na=False)].pivot_table(index=['TRIP', 'STORE NAME'], columns='Product', values='Qty', aggfunc='sum').fillna(0).reset_index()
                     m_order = full_df.pivot_table(index=['TRIP', 'STORE NAME'], columns='Product', values='Qty', aggfunc='sum').fillna(0).reset_index()
@@ -63,9 +62,9 @@ if file:
                         wb = writer.book
                         h_fmt = wb.add_format({'bold': True, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#FFFF00', 'border': 1, 'text_wrap': True})
                         d_fmt = wb.add_format({'border': 1, 'align': 'center'})
-                        sum_fmt = wb.add_format({'bold': True, 'bg_color': '#E2EFDA', 'border': 1})
+                        sum_fmt = wb.add_format({'bold': True, 'bg_color': '#E2EFDA', 'border': 1, 'num_format': '#,##0'})
 
-                        # --- ชีท 1: น้ำหนัก (หัว 2 แถว + จ่ายจริง) ---
+                        # --- ชีท 1: น้ำหนัก ---
                         ws1 = wb.add_worksheet("น้ำหนัก")
                         ws1.merge_range(0,0,1,0,"No.",h_fmt); ws1.merge_range(0,1,1,1,"TRIP",h_fmt); ws1.merge_range(0,2,1,2,"STORE NAME",h_fmt)
                         prods_w = [p for p in m_weight.columns if p not in ['TRIP', 'STORE NAME']]
@@ -79,7 +78,7 @@ if file:
                             for p in prods_w:
                                 ws1.write(r, d_ptr, row[p], d_fmt); ws1.write(r, d_ptr+1, "", d_fmt); d_ptr += 2
 
-                        # --- ชีท 2: จัดกล่อง (แถวเดียว + รวมตั้ง/นอน) ---
+                        # --- ชีท 2: จัดกล่อง (คืนค่า TOTAL ล่างสุด) ---
                         ws2 = wb.add_worksheet("จัดกล่อง")
                         ws2.write(0,0,"No.",h_fmt); ws2.write(0,1,"TRIP",h_fmt); ws2.write(0,2,"STORE NAME",h_fmt)
                         prods_b = [p for p in m_box.columns if p not in ['TRIP', 'STORE NAME']]
@@ -89,21 +88,25 @@ if file:
                             r = i+1; ws2.write(r,0,i+1,d_fmt); ws2.write(r,1,row['TRIP'],d_fmt); ws2.write(r,2,row['STORE NAME'],d_fmt)
                             for idx, p in enumerate(prods_b): ws2.write(r, idx+3, row[p], d_fmt)
                             ws2.write(r, s_col, sum(row[p] for p in prods_b), sum_fmt)
+                        # เพิ่มแถว TOTAL รวมแนวตั้งล่างสุด
+                        last_r = len(m_box)+1
+                        ws2.write(last_r, 2, "TOTAL", sum_fmt)
+                        for idx, p in enumerate(prods_b):
+                            ws2.write(last_r, idx+3, m_box[p].sum(), sum_fmt)
+                        ws2.write(last_r, s_col, m_box[prods_b].sum().sum(), sum_fmt)
 
-                        # --- ชีท 3: Order (Matrix แถวเดียว - จบแค่ข้อมูล) ---
+                        # --- ชีท 3: Order ---
                         ws3 = wb.add_worksheet("Order")
                         ws3.write(0, 0, "No.", h_fmt); ws3.write(0, 1, "TRIP", h_fmt); ws3.write(0, 2, "STORE NAME", h_fmt)
                         prods_o = [p for p in m_order.columns if p not in ['TRIP', 'STORE NAME']]
-                        for idx, p in enumerate(prods_o):
-                            ws3.write(0, idx+3, p, h_fmt)
+                        for idx, p in enumerate(prods_o): ws3.write(0, idx+3, p, h_fmt)
                         for i, row in m_order.iterrows():
                             r = i+1; ws3.write(r,0,i+1,d_fmt); ws3.write(r,1,row['TRIP'],d_fmt); ws3.write(r,2,row['STORE NAME'],d_fmt)
-                            for idx, p in enumerate(prods_o):
-                                ws3.write(r, idx+3, row[p], d_fmt)
+                            for idx, p in enumerate(prods_o): ws3.write(r, idx+3, row[p], d_fmt)
                         
-                        ws1.set_column('C:C', 35); ws2.set_column('C:C', 35); ws3.set_column('C:C', 35)
+                        for ws in [ws1, ws2, ws3]: ws.set_column('C:C', 35)
 
-                    st.success("✅ ประมวลผลสำเร็จ ชีท Order จบที่รายการข้อมูลสุดท้ายแล้วครับ")
-                    st.download_button("📥 ดาวน์โหลดไฟล์ v3.6", output.getvalue(), "BNN_Correct_v3.6.xlsx")
+                    st.success("✅ แก้ไขแถว TOTAL ในชีทจัดกล่องเรียบร้อยแล้วครับ!")
+                    st.download_button("📥 ดาวน์โหลดไฟล์ v3.7", output.getvalue(), "BNN_Final_v3.7.xlsx")
         except Exception as e:
             st.error(f"Error: {e}")
