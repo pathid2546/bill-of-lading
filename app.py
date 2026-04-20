@@ -3,7 +3,7 @@ import pandas as pd
 import io
 
 # --- UI CONFIG ---
-st.set_page_config(page_title="BNN | 3-Sheet Fix v2.7", layout="wide")
+st.set_page_config(page_title="BNN | System v3.0", layout="wide")
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600&display=swap');
@@ -12,127 +12,107 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-st.title("🥩 ระบบจัดการใบเบิก (แก้ไขชีท 2 และ 3 ให้เหมือนชีทแรก)")
+st.title("🥩 ระบบจัดการใบเบิก v3.0 (น้ำหนัก / จัดกล่อง / Order-Input)")
 
 file = st.file_uploader("📥 อัปโหลดไฟล์ใบเบิกสินค้า (Raw Data)", type=["xlsx", "csv"])
 
 if file:
-    if st.button("🔍 ประมวลผลและสร้าง Preview"):
+    if st.button("🚀 ประมวลผลและสร้าง Preview"):
         try:
-            # 1. การอ่านข้อมูล
-            if file.name.endswith('.csv'):
-                raw_df = pd.read_csv(file, header=None)
-            else:
-                raw_df = pd.read_excel(file, header=None)
-            
+            # 1. อ่านข้อมูล
+            raw_df = pd.read_csv(file, header=None) if file.name.endswith('.csv') else pd.read_excel(file, header=None)
             header_row_idx = next((i for i, r in raw_df.iterrows() if r.astype(str).str.contains('Description', na=False).any()), None)
             
             if header_row_idx is not None:
-                thai_names_row = raw_df.iloc[header_row_idx]
-                trip_codes_row = raw_df.iloc[header_row_idx + 1] # แถบสีแดง
+                trip_codes_row = raw_df.iloc[header_row_idx + 1]
                 df_clean = raw_df.iloc[header_row_idx:].copy()
-                df_clean.columns = df_clean.iloc[0]
-                df_clean = df_clean.iloc[1:].reset_index(drop=True)
+                df_clean.columns = df_clean.iloc[0]; df_clean = df_clean.iloc[1:].reset_index(drop=True)
                 df_clean.columns = [str(c).strip() for c in df_clean.columns]
-                
                 store_cols = [c for c in df_clean.columns[4:] if "Unnamed" not in c]
 
-                # 2. เตรียม Data รายบรรทัด
-                all_data = []
-                for idx, row in df_clean.iterrows():
+                # 2. จัดการ Data
+                all_rows = []
+                for _, row in df_clean.iterrows():
                     product = str(row.get('Description', '')).strip()
                     if product in ['', 'nan', '0', '0.0'] or 'Description' in product: continue
-                    
                     for col in store_cols:
-                        qty = row[col]
                         try:
-                            qty_num = float(qty)
-                            if qty_num > 0:
-                                col_idx = df_clean.columns.get_loc(col)
-                                all_data.append({
-                                    'TRIP': str(trip_codes_row[col_idx]).strip() if pd.notna(trip_codes_row[col_idx]) else "-",
+                            qty = float(row[col])
+                            if qty > 0:
+                                c_idx = df_clean.columns.get_loc(col)
+                                all_rows.append({
+                                    'TRIP': str(trip_codes_row[c_idx]).strip(),
                                     'STORE NAME': col,
                                     'Product': product,
-                                    'Qty': qty_num
+                                    'Qty': qty
                                 })
                         except: continue
 
-                if all_data:
-                    full_df = pd.DataFrame(all_data)
-                    meat_keywords = ['เนื้อ', 'หมู', 'Meat', 'Pork']
+                if all_rows:
+                    full_df = pd.DataFrame(all_rows)
+                    meat_kw = ['เนื้อ', 'หมู', 'Meat', 'Pork']
                     
-                    # แบ่งกลุ่มข้อมูล 3 ชีท
-                    d_weight = full_df[full_df['Product'].str.contains('|'.join(meat_keywords), na=False)]
-                    d_box = full_df[~full_df['Product'].str.contains('|'.join(meat_keywords), na=False)]
-                    d_order = full_df
-
-                    def get_matrix(df_src):
-                        if df_src.empty: return pd.DataFrame()
-                        return df_src.pivot_table(index=['TRIP', 'STORE NAME'], columns='Product', values='Qty', aggfunc='sum').fillna(0).reset_index()
-
-                    m_weight = get_matrix(d_weight)
-                    m_box = get_matrix(d_box)
-                    m_order = get_matrix(d_order)
+                    # เตรียมข้อมูล 3 แบบ
+                    m_weight = full_df[full_df['Product'].str.contains('|'.join(meat_kw), na=False)].pivot_table(index=['TRIP', 'STORE NAME'], columns='Product', values='Qty', aggfunc='sum').fillna(0).reset_index()
+                    m_box = full_df[~full_df['Product'].str.contains('|'.join(meat_kw), na=False)].pivot_table(index=['TRIP', 'STORE NAME'], columns='Product', values='Qty', aggfunc='sum').fillna(0).reset_index()
+                    
+                    # ชีท Order แบบ Input (แนวตั้ง)
+                    order_input = full_df[['TRIP', 'STORE NAME', 'Product', 'Qty']].copy()
 
                     # --- UI: Preview ---
-                    tab1, tab2, tab3 = st.tabs(["📋 น้ำหนัก", "📦 จัดกล่อง", "📑 Order ทั้งหมด"])
-                    with tab1: st.dataframe(m_weight, use_container_width=True)
-                    with tab2: st.dataframe(m_box, use_container_width=True)
-                    with tab3: st.dataframe(m_order, use_container_width=True)
+                    t1, t2, t3 = st.tabs(["📋 น้ำหนัก (มีจ่ายจริง)", "📦 จัดกล่อง (รวมผลรวม)", "📑 Order (แบบ Input)"])
+                    with t1: st.dataframe(m_weight)
+                    with t2: st.dataframe(m_box)
+                    with t3: st.dataframe(order_input)
 
-                    # --- 3. สร้าง Excel (ล็อค Format เดียวกันทุกชีท) ---
+                    # --- 3. สร้าง Excel ---
                     output = io.BytesIO()
                     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                        workbook = writer.book
-                        header_fmt = workbook.add_format({'bold': True, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#FFFF00', 'border': 1, 'text_wrap': True})
-                        data_fmt = workbook.add_format({'border': 1, 'align': 'center'})
-                        total_fmt = workbook.add_format({'bold': True, 'bg_color': '#E2EFDA', 'border': 1})
+                        wb = writer.book
+                        h_fmt = wb.add_format({'bold': True, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#FFFF00', 'border': 1})
+                        d_fmt = wb.add_format({'border': 1, 'align': 'center'})
+                        sum_fmt = wb.add_format({'bold': True, 'bg_color': '#E2EFDA', 'border': 1})
 
-                        for s_name, m_data in [("น้ำหนัก", m_weight), ("จัดกล่อง", m_box), ("Order", m_order)]:
-                            if m_data.empty: continue
-                            ws = workbook.add_worksheet(s_name)
-                            
-                            # หัวตารางหลัก
-                            ws.merge_range(0, 0, 1, 0, "No.", header_fmt)
-                            ws.merge_range(0, 1, 1, 1, "TRIP", header_fmt)
-                            ws.merge_range(0, 2, 1, 2, "STORE NAME", header_fmt)
-
-                            prods = [p for p in m_data.columns if p not in ['TRIP', 'STORE NAME']]
+                        # --- ชีท 1: น้ำหนัก (หัว 2 แถว + จ่ายจริง) ---
+                        if not m_weight.empty:
+                            ws1 = wb.add_worksheet("น้ำหนัก")
+                            ws1.merge_range(0,0,1,0,"No.",h_fmt); ws1.merge_range(0,1,1,1,"TRIP",h_fmt); ws1.merge_range(0,2,1,2,"STORE NAME",h_fmt)
+                            prods = [p for p in m_weight.columns if p not in ['TRIP', 'STORE NAME']]
                             c_ptr = 3
                             for p in prods:
-                                # หัวตารางย่อย จำนวนสั่ง/ชื่อสินค้า + จ่ายจริง
-                                ws.write(0, c_ptr, "จำนวนสั่ง", header_fmt)
-                                ws.write(1, c_ptr, p, header_fmt)
-                                ws.merge_range(0, c_ptr+1, 1, c_ptr+1, "จ่ายจริง", header_fmt)
-                                c_ptr += 2
-                            
-                            ws.merge_range(0, c_ptr, 1, c_ptr, "ตะกร้า", header_fmt)
-                            ws.merge_range(0, c_ptr+1, 1, c_ptr+1, "กล่อง", header_fmt)
-
-                            # เขียนข้อมูล
-                            for i, row in m_data.iterrows():
-                                curr_r = i + 2
-                                ws.write(curr_r, 0, i+1, data_fmt)
-                                ws.write(curr_r, 1, row['TRIP'], data_fmt)
-                                ws.write(curr_r, 2, row['STORE NAME'], data_fmt)
+                                ws1.write(0, c_ptr, "จำนวนสั่ง", h_fmt); ws1.write(1, c_ptr, p, h_fmt)
+                                ws1.merge_range(0, c_ptr+1, 1, c_ptr+1, "จ่ายจริง", h_fmt); c_ptr += 2
+                            for i, row in m_weight.iterrows():
+                                r = i+2; ws1.write(r,0,i+1,d_fmt); ws1.write(r,1,row['TRIP'],d_fmt); ws1.write(r,2,row['STORE NAME'],d_fmt)
                                 d_ptr = 3
                                 for p in prods:
-                                    ws.write(curr_r, d_ptr, row[p], data_fmt)
-                                    ws.write(curr_r, d_ptr+1, "", data_fmt) # จ่ายจริง
-                                    d_ptr += 2
-                            
-                            # แถว TOTAL
-                            last_r = len(m_data) + 2
-                            ws.merge_range(last_r, 0, last_r, 2, "TOTAL", total_fmt)
-                            t_ptr = 3
-                            for p in prods:
-                                ws.write(last_r, t_ptr, m_data[p].sum(), total_fmt)
-                                ws.write(last_r, t_ptr+1, "", total_fmt)
-                                t_ptr += 2
-                            ws.set_column('C:C', 35)
+                                    ws1.write(r, d_ptr, row[p], d_fmt); ws1.write(r, d_ptr+1, "", d_fmt); d_ptr += 2
 
-                    st.divider()
-                    st.success("✅ แก้ไขชีทจัดกล่อง และ Order ให้มีหัวตาราง 2 แถวและช่องจ่ายจริงเรียบร้อยแล้ว!")
-                    st.download_button("📥 ดาวน์โหลดไฟล์ Excel (แก้ไขครบ 3 ชีท)", output.getvalue(), "BNN_Final_3Sheets.xlsx")
+                        # --- ชีท 2: จัดกล่อง (แถวเดียว + รวมแนวนอน) ---
+                        if not m_box.empty:
+                            ws2 = wb.add_worksheet("จัดกล่อง")
+                            ws2.write(0,0,"No.",h_fmt); ws2.write(0,1,"TRIP",h_fmt); ws2.write(0,2,"STORE NAME",h_fmt)
+                            prods_box = [p for p in m_box.columns if p not in ['TRIP', 'STORE NAME']]
+                            for idx, p in enumerate(prods_box): ws2.write(0, idx+3, p, h_fmt)
+                            sum_col = len(prods_box)+3; ws2.write(0, sum_col, "รวมจำนวน", h_fmt)
+                            for i, row in m_box.iterrows():
+                                r = i+1; ws2.write(r,0,i+1,d_fmt); ws2.write(r,1,row['TRIP'],d_fmt); ws2.write(r,2,row['STORE NAME'],d_fmt)
+                                r_sum = 0
+                                for idx, p in enumerate(prods_box):
+                                    ws2.write(r, idx+3, row[p], d_fmt); r_sum += row[p]
+                                ws2.write(r, sum_col, r_sum, sum_fmt)
+
+                        # --- ชีท 3: Order (แบบ Input แนวตั้ง) ---
+                        ws3 = wb.add_worksheet("Order")
+                        headers = ["TRIP", "STORE NAME", "Product", "Qty"]
+                        for c, h in enumerate(headers): ws3.write(0, c, h, h_fmt)
+                        for i, row in order_input.iterrows():
+                            for c, col_name in enumerate(headers):
+                                ws3.write(i+1, c, row[col_name], d_fmt)
+
+                        ws1.set_column('C:C', 35); ws2.set_column('C:C', 35); ws3.set_column('B:C', 30)
+
+                    st.success("✅ ปรับปรุงชีท Order เป็นแบบ Input เรียบร้อยแล้ว!")
+                    st.download_button("📥 ดาวน์โหลดไฟล์ v3.0", output.getvalue(), "BNN_Final_v3.xlsx")
         except Exception as e:
-            st.error(f"เกิดข้อผิดพลาด: {e}")
+            st.error(f"Error: {e}")
