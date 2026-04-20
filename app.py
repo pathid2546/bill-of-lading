@@ -2,24 +2,25 @@ import streamlit as st
 import pandas as pd
 import io
 
-# --- การตั้งค่า Theme แบบ Modern Dark ---
-st.set_page_config(page_title="BNN Multi-Sheet System", layout="wide")
+# --- CONFIG & MODERN DARK THEME UI ---
+st.set_page_config(page_title="BNN | Color Master", layout="wide")
+
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600&display=swap');
-    html, body, [class*="css"], .main { background-color: #0E1117; color: #FFFFFF !important; font-family: 'Kanit', sans-serif; }
-    .stButton > button { background: linear-gradient(45deg, #FF4B2B, #FF416C); color: white; border-radius: 10px; border: none; padding: 10px 20px; font-weight: bold; }
+    html, body, [class*="css"], .main { background-color: #0A0C10; color: #FFFFFF !important; font-family: 'Kanit', sans-serif; }
+    .stButton > button { background: linear-gradient(45deg, #00F2FF, #7000FF); color: white; border-radius: 12px; padding: 12px; font-weight: 600; width: 100%; border: none; }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("📦 ระบบแยกชีทใบเบิกสินค้า (Multi-Sheet Version)")
+st.title("🎨 ระบบกู้คืน Raw Data พร้อมจัดสีตามต้นฉบับ")
 
-uploaded_file = st.file_uploader("📥 อัปโหลดไฟล์ใบเบิกสินค้าต้นทาง (Raw Data)", type="xlsx")
+uploaded_file = st.file_uploader("📥 อัปโหลดไฟล์ใบเบิกเพื่อแปลงเป็นไฟล์สี (xlsx)", type="xlsx")
 
 if uploaded_file:
-    if st.button("🚀 ประมวลผลและสร้างไฟล์ 3 ชีท"):
+    if st.button("🚀 ประมวลผลและใส่สีตาราง"):
         try:
-            # 1. ค้นหาหัวตาราง Description
+            # 1. อ่านข้อมูลพื้นฐาน
             raw_excel = pd.read_excel(uploaded_file, header=None)
             header_idx = next((i for i, r in raw_excel.iterrows() if r.astype(str).str.contains('Description', case=False, na=False).any()), None)
             
@@ -30,11 +31,11 @@ if uploaded_file:
                 static_cols = ['#', 'Item No.', 'Description', 'UNIT']
                 store_cols = [c for c in df.columns if c not in static_cols and 'Unnamed' not in c]
                 
-                # เก็บข้อมูล Mapping สาขาและทริป
+                # เก็บ Mapping ทริปและชื่อสาขา
                 trip_map = {s: df[s].iloc[0] for s in store_cols}
                 name_map = {s: (df[s].iloc[1] if len(df) > 1 else s) for s in store_cols}
 
-                # 2. คัดแยกข้อมูลตามหน่วย (Unit)
+                # 2. คัดแยกและเตรียมข้อมูล
                 all_data = []
                 for _, row in df.iterrows():
                     item = row.get('Description')
@@ -45,59 +46,71 @@ if uploaded_file:
                         qty = row[store]
                         if pd.notna(qty) and isinstance(qty, (int, float)) and qty > 0:
                             all_data.append({
-                                'STORE ID': store,
-                                'STORE NAME': name_map.get(store),
-                                'Trip': trip_map.get(store),
-                                'Product': item,
-                                'Qty': qty,
-                                'Unit': unit
+                                'STORE ID': store, 'STORE NAME': name_map.get(store),
+                                'Trip': trip_map.get(store), 'Product': item, 'Qty': qty, 'Unit': unit
                             })
                 
                 if all_data:
                     full_df = pd.DataFrame(all_data)
-
-                    # --- กรองข้อมูลแยกชีท ---
-                    # ชีทน้ำหนัก: เอาเฉพาะที่มีคำว่า 'กิโลกรัม' หรือหน่วยที่เกี่ยวข้องกับน้ำหนัก
-                    weight_list = full_df[full_df['Unit'].str.contains('กิโลกรัม|กรัม|kg|g', case=False, na=False)]
                     
-                    # ชีทจัดกล่อง: เอาของที่เป็นชิ้น หรือหน่วยอื่นๆ ที่ไม่ใช่กิโลกรัม
-                    box_list = full_df[~full_df['Unit'].str.contains('กิโลกรัม|กรัม|kg|g', case=False, na=False)]
+                    # แยกกลุ่มข้อมูลเพื่อทำชีท
+                    weight_list = full_df[full_df['Unit'].str.contains('กิโลกรัม|กรัม|kg|g', na=False)]
+                    box_list = full_df[~full_df['Unit'].str.contains('กิโลกรัม|กรัม|kg|g', na=False)]
 
-                    # ฟังก์ชันช่วยทำ Matrix
-                    def make_matrix(src_df):
+                    def build_matrix(src_df):
                         if src_df.empty: return pd.DataFrame()
-                        matrix = src_df.pivot_table(index=['STORE ID', 'STORE NAME', 'Trip'], 
-                                                   columns='Product', values='Qty', aggfunc='sum').fillna(0).reset_index()
-                        matrix.columns.name = None
-                        matrix.insert(0, 'No.', range(1, len(matrix) + 1))
-                        return matrix
+                        mx = src_df.pivot_table(index=['STORE ID', 'STORE NAME', 'Trip'], 
+                                               columns='Product', values='Qty', aggfunc='sum').fillna(0).reset_index()
+                        mx.columns.name = None
+                        mx.insert(0, 'No.', range(1, len(mx) + 1))
+                        return mx
 
-                    # เตรียม DataFrames สำหรับแต่ละชีท
-                    sheet_weight = make_matrix(weight_list)
-                    sheet_box = make_matrix(box_list)
-                    sheet_order = make_matrix(full_df)
+                    final_weight = build_matrix(weight_list)
+                    final_box = build_matrix(box_list)
+                    final_order = build_matrix(full_df)
 
-                    # 3. เขียนไฟล์ Excel แบบ 3 ชีท
+                    # 3. การเขียนไฟล์ Excel พร้อมจัดสี (XlsxWriter)
                     output = io.BytesIO()
                     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                        sheet_weight.to_excel(writer, sheet_name='น้ำหนัก', index=False)
-                        sheet_box.to_excel(writer, sheet_name='จัดกล่อง', index=False)
-                        sheet_order.to_excel(writer, sheet_name='Order', index=False)
+                        sheets = {
+                            'น้ำหนัก': final_weight,
+                            'จัดกล่อง': final_box,
+                            'Order': final_order
+                        }
                         
-                        # เพิ่มความสวยงาม (Auto-Fit คอลัมน์)
-                        for sheet in writer.sheets.values():
-                            sheet.set_column('A:Z', 20)
+                        for sheet_name, data in sheets.items():
+                            if data.empty: continue
+                            data.to_excel(writer, sheet_name=sheet_name, index=False)
+                            
+                            workbook = writer.book
+                            worksheet = writer.sheets[sheet_name]
 
-                    st.success("✅ แยกข้อมูลลง 3 ชีทเรียบร้อยแล้ว!")
-                    st.download_button(
-                        label="📥 ดาวน์โหลดไฟล์ Excel (3 ชีท)",
-                        data=output.getvalue(),
-                        file_name="BNN_Categorized_Report.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                    )
+                            # --- กำหนดสีต่างๆ (Color Codes) ---
+                            header_fmt = workbook.add_format({'bold': True, 'bg_color': '#FFFF00', 'border': 1, 'align': 'center'}) # สีเหลือง
+                            store_id_fmt = workbook.add_format({'bg_color': '#92D050', 'border': 1}) # สีเขียว
+                            trip_fmt = workbook.add_format({'bg_color': '#FFEB9C', 'border': 1}) # สีเหลืองอ่อน
+                            number_fmt = workbook.add_format({'border': 1, 'align': 'center'})
+
+                            # พ่นสีหัวตาราง
+                            for col_num, value in enumerate(data.columns.values):
+                                worksheet.write(0, col_num, value, header_fmt)
+                            
+                            # พ่นสีคอลัมน์ข้อมูล (จัดตามกลุ่ม)
+                            for row_num in range(1, len(data) + 1):
+                                worksheet.write(row_num, 0, data.iloc[row_num-1, 0], number_fmt)     # No.
+                                worksheet.write(row_num, 1, data.iloc[row_num-1, 1], store_id_fmt)   # STORE ID
+                                worksheet.write(row_num, 3, data.iloc[row_num-1, 3], trip_fmt)       # Trip
+
+                            # ปรับความกว้างอัตโนมัติ
+                            worksheet.set_column('A:A', 5)
+                            worksheet.set_column('B:D', 25)
+                            worksheet.set_column('E:ZZ', 15)
+
+                    st.success("✨ ประมวลผลและจัดสีตามต้นฉบับเสร็จสมบูรณ์!")
+                    st.download_button("📥 ดาวน์โหลดไฟล์ (สีสวยตามสั่ง)", output.getvalue(), "BNN_Color_Report.xlsx")
                 else:
-                    st.warning("ไม่พบยอดการสั่งซื้อในไฟล์")
+                    st.warning("ไม่พบยอดการสั่งซื้อ")
             else:
                 st.error("ไม่พบคอลัมน์ 'Description'")
         except Exception as e:
-            st.error(f"เกิดข้อผิดพลาด: {e}")
+            st.error(f"Error: {e}")
