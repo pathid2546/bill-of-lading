@@ -3,62 +3,44 @@ import pandas as pd
 import io
 
 # --- UI CONFIGURATION ---
-st.set_page_config(page_title="Project น้องเดียร์แปลงบิล v5.0", layout="wide")
+st.set_page_config(page_title="Project น้องเดียร์แปลงบิล v6.0", layout="wide")
 
-# --- CUSTOM CSS ---
 def local_css(main_color, font_family):
     st.markdown(f"""
         <style>
         @import url('https://fonts.googleapis.com/css2?family={font_family.replace(" ", "+")}:wght@300;400;600&display=swap');
-        html, body, [class*="css"], .main {{
-            background-color: #0F1117;
-            color: #E0E0E0 !important;
-            font-family: '{font_family}', sans-serif;
-        }}
+        html, body, [class*="css"], .main {{ background-color: #0F1117; color: #E0E0E0 !important; font-family: '{font_family}', sans-serif; }}
         h1 {{ color: {main_color} !important; text-align: center; text-shadow: 2px 2px 10px {main_color}44; }}
-        /* ตกแต่ง Tabs */
         .stTabs [data-baseweb="tab-list"] {{ gap: 24px; }}
-        .stTabs [data-baseweb="tab"] {{
-            height: 50px;
-            white-space: pre-wrap;
-            background-color: #1A1C24;
-            border-radius: 10px 10px 0px 0px;
-            color: #E0E0E0;
-            padding: 10px 20px;
-        }}
-        .stTabs [aria-selected="true"] {{ background-color: {main_color} !important; color: white !important; }}
-        
+        .stTabs [aria-selected="true"] {{ background-color: {main_color} !important; color: white !important; border-radius: 8px; }}
         div.stButton > button {{
             background: linear-gradient(135deg, {main_color} 0%, #FF85A1 100%);
-            color: white !important; border-radius: 12px; font-weight: bold; height: 60px; width: 100%;
-            font-size: 20px; transition: all 0.3s; box-shadow: 0 4px 15px {main_color}66;
+            color: white !important; border-radius: 12px; font-weight: bold; height: 60px; width: 100%; font-size: 20px;
         }}
         </style>
     """, unsafe_allow_html=True)
 
-# --- THEME SETTING ---
-theme_color = st.sidebar.color_picker("ธีมสีปุ่ม/หัวข้อ", "#FF4B8B")
-font_choice = st.sidebar.selectbox("เลือกฟอนต์", ["Kanit", "Mitr", "Sarabun", "Roboto"])
+# --- SETTINGS ---
+theme_color = st.sidebar.color_picker("ธีมสีหลัก", "#FF4B8B")
+font_choice = st.sidebar.selectbox("เลือกฟอนต์", ["Kanit", "Mitr", "Sarabun"])
 local_css(theme_color, font_choice)
 
-st.title(f"💖 Project น้องเดียร์แปลงบิล v5.0")
+st.title(f"💖 Project น้องเดียร์แปลงบิล v6.0")
 
-# --- MAIN TABS ---
-tab_upload, tab_setting, tab_process = st.tabs(["📥 1. อัปโหลดไฟล์", "⚙️ 2. จัดลำดับสินค้า", "🚀 3. ประมวลผล"])
+# --- SESSION STATE FOR SORTING ---
+if 'df_sort_box' not in st.session_state: st.session_state.df_sort_box = None
+if 'df_sort_order' not in st.session_state: st.session_state.df_sort_order = None
+
+tab_upload, tab_setting, tab_process = st.tabs(["📥 1. อัปโหลดไฟล์", "📑 2. ตั้งค่าลำดับ (ตาราง)", "🚀 3. ประมวลผล"])
 
 with tab_upload:
-    st.subheader("ขั้นตอนแรก: เลือกไฟล์ที่ต้องการแปลง")
-    file = st.file_uploader("เลือกไฟล์ใบเบิกสินค้า (xlsx, csv)", type=["xlsx", "csv"])
+    file = st.file_uploader("อัปโหลดไฟล์ Raw Data", type=["xlsx", "csv"])
     if file:
-        st.success("✅ อัปโหลดไฟล์เรียบร้อย! เชิญพี่เดียร์ไปที่หน้า '2. จัดลำดับสินค้า' ต่อได้เลยค่ะ")
-
-# สร้างตัวแปรเก็บสถานะใน Session State เพื่อให้ค่าไม่หายเวลาสลับหน้า
-if 'sort_box' not in st.session_state: st.session_state.sort_box = []
-if 'sort_order' not in st.session_state: st.session_state.sort_order = []
+        st.success("อัปโหลดสำเร็จ! กรุณาไปที่หน้า 'ตั้งค่าลำดับ' เพื่อตรวจสอบลำดับสินค้าค่ะ")
 
 if file:
     try:
-        # อ่าน Data เบื้องต้น
+        # --- ประมวลผล DATA เบื้องต้น ---
         raw_df = pd.read_csv(file, header=None) if file.name.endswith('.csv') else pd.read_excel(file, header=None)
         header_row_idx = next((i for i, r in raw_df.iterrows() if r.astype(str).str.contains('Description', na=False).any()), None)
         
@@ -77,59 +59,63 @@ if file:
                     try:
                         qty = float(row[col])
                         if qty > 0:
-                            all_rows.append({'TRIP': str(trip_codes_row[df_clean.columns.get_loc(col)]).strip(), 
-                                             'STORE NAME': col, 'Product': product, 'Qty': qty})
+                            all_rows.append({
+                                'TRIP': str(trip_codes_row[df_clean.columns.get_loc(col)]).strip(), 
+                                'STORE NAME': col, 'Product': product, 'Qty': qty
+                            })
                     except: continue
             
             full_df = pd.DataFrame(all_rows)
             meat_kw = ['เนื้อ', 'หมู', 'Meat', 'Pork']
             
-            box_products = sorted(full_df[~full_df['Product'].str.contains('|'.join(meat_kw), na=False)]['Product'].unique())
-            all_products = sorted(full_df['Product'].unique())
+            # เตรียมรายการสินค้าสำหรับตารางลำดับ
+            box_prods = sorted(full_df[~full_df['Product'].str.contains('|'.join(meat_kw), na=False)]['Product'].unique())
+            all_prods = sorted(full_df['Product'].unique())
+
+            # สร้าง DataFrame สำหรับ Edit ลำดับ (ถ้ายังไม่มี)
+            if st.session_state.df_sort_box is None:
+                st.session_state.df_sort_box = pd.DataFrame({'ลำดับ': range(1, len(box_prods)+1), 'ชื่อสินค้า': box_prods})
+            if st.session_state.df_sort_order is None:
+                st.session_state.df_sort_order = pd.DataFrame({'ลำดับ': range(1, len(all_prods)+1), 'ชื่อสินค้า': all_prods})
 
             with tab_setting:
-                st.subheader("จัดการลำดับสินค้าในแต่ละหน้า")
-                col_a, col_b = st.columns(2)
+                st.subheader("แก้ไขลำดับโดยการพิมพ์ตัวเลขในช่อง 'ลำดับ'")
+                col1, col2 = st.columns(2)
                 
-                with col_a:
-                    st.markdown("### 📦 หน้าจัดกล่อง")
-                    st.session_state.sort_box = st.multiselect(
-                        "เลือกสินค้าตามลำดับที่ต้องการ (ชีทจัดกล่อง)", 
-                        options=box_products, 
-                        default=st.session_state.sort_box if st.session_state.sort_box else box_products,
-                        key="box_multi"
+                with col1:
+                    st.markdown("### 📦 สำหรับชีท [จัดกล่อง]")
+                    # แก้ไขลำดับแบบตาราง
+                    st.session_state.df_sort_box = st.data_editor(
+                        st.session_state.df_sort_box,
+                        column_config={"ลำดับ": st.column_config.NumberColumn(format="%d")},
+                        hide_index=True, use_container_width=True, key="ed_box"
                     )
                 
-                with col_b:
-                    st.markdown("### 📝 หน้า Order")
-                    st.session_state.sort_order = st.multiselect(
-                        "เลือกสินค้าตามลำดับที่ต้องการ (ชีท Order)", 
-                        options=all_products, 
-                        default=st.session_state.sort_order if st.session_state.sort_order else all_products,
-                        key="order_multi"
+                with col2:
+                    st.markdown("### 📝 สำหรับชีท [Order]")
+                    st.session_state.df_sort_order = st.data_editor(
+                        st.session_state.df_sort_order,
+                        column_config={"ลำดับ": st.column_config.NumberColumn(format="%d")},
+                        hide_index=True, use_container_width=True, key="ed_order"
                     )
-                
-                if st.button("บันทึกการตั้งค่าลำดับ"):
-                    st.toast("บันทึกลำดับเรียบร้อยแล้วค่ะ!", icon="✅")
+                st.info("💡 ทริค: คลิกที่หัวตาราง 'ลำดับ' เพื่อตรวจสอบการเรียงจากน้อยไปมาก")
 
             with tab_process:
-                st.subheader("ตรวจสอบความพร้อมครั้งสุดท้าย")
-                st.write(f"📊 จำนวนร้านค้าที่พบ: {full_df['STORE NAME'].nunique()} ร้าน")
-                st.write(f"📦 จำนวนรายการสินค้า: {full_df['Product'].nunique()} รายการ")
-                
                 if st.button("🚀 ประมวลผลและสร้างไฟล์ Final"):
-                    # Logic การทำ Matrix
+                    # เตรียมลำดับที่เลือก
+                    order_box = st.session_state.df_sort_box.sort_values('ลำดับ')['ชื่อสินค้า'].tolist()
+                    order_total = st.session_state.df_sort_order.sort_values('ลำดับ')['ชื่อสินค้า'].tolist()
+
+                    # Matrix Data
                     m_weight = full_df[full_df['Product'].str.contains('|'.join(meat_kw), na=False)].pivot_table(index=['TRIP', 'STORE NAME'], columns='Product', values='Qty', aggfunc='sum').fillna(0).reset_index()
                     m_box = full_df[~full_df['Product'].str.contains('|'.join(meat_kw), na=False)].pivot_table(index=['TRIP', 'STORE NAME'], columns='Product', values='Qty', aggfunc='sum').fillna(0).reset_index()
                     m_order = full_df.pivot_table(index=['TRIP', 'STORE NAME'], columns='Product', values='Qty', aggfunc='sum').fillna(0).reset_index()
 
-                    # ใช้ลำดับจากหน้า Setting
-                    if st.session_state.sort_box:
-                        m_box = m_box[['TRIP', 'STORE NAME'] + [p for p in st.session_state.sort_box if p in m_box.columns]]
-                    if st.session_state.sort_order:
-                        m_order = m_order[['TRIP', 'STORE NAME'] + [p for p in st.session_state.sort_order if p in m_order.columns]]
+                    # Re-index Columns ตามตารางที่แก้
+                    m_box = m_box[['TRIP', 'STORE NAME'] + [p for p in order_box if p in m_box.columns]]
+                    m_order = m_order[['TRIP', 'STORE NAME'] + [p for p in order_total if p in m_order.columns]]
 
-                    # --- ส่วนเขียน Excel (เหมือนเดิม) ---
+                    # --- EXCEL WRITER (Logic เดิม) ---
                     output = io.BytesIO()
                     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                         wb = writer.book
@@ -137,9 +123,7 @@ if file:
                         d_fmt = wb.add_format({'border': 1, 'align': 'center'})
                         sum_fmt = wb.add_format({'bold': True, 'bg_color': '#D9EAD3', 'border': 1, 'num_format': '#,##0'})
 
-                        # (Code ส่วน Worksheet ทั้ง 3 ชีท เหมือนกับเวอร์ชันที่แล้ว...)
-                        # [ขออนุญาตตัดย่อในส่วน Worksheet เพื่อประหยัดพื้นที่ แต่ Logic การเขียนเหมือนเดิมครับ]
-                        # --- ชีทน้ำหนัก ---
+                        # ชีท 1: น้ำหนัก
                         ws1 = wb.add_worksheet("น้ำหนัก")
                         ws1.merge_range(0,0,1,0,"No.",h_fmt); ws1.merge_range(0,1,1,1,"TRIP",h_fmt); ws1.merge_range(0,2,1,2,"STORE NAME",h_fmt)
                         prods_w = [p for p in m_weight.columns if p not in ['TRIP', 'STORE NAME']]
@@ -153,7 +137,7 @@ if file:
                             for p in prods_w:
                                 ws1.write(r, d_ptr, row[p], d_fmt); ws1.write(r, d_ptr+1, "", d_fmt); d_ptr += 2
 
-                        # --- ชีทจัดกล่อง ---
+                        # ชีท 2: จัดกล่อง
                         ws2 = wb.add_worksheet("จัดกล่อง")
                         ws2.write(0,0,"No.",h_fmt); ws2.write(0,1,"TRIP",h_fmt); ws2.write(0,2,"STORE NAME",h_fmt)
                         prods_b = [p for p in m_box.columns if p not in ['TRIP', 'STORE NAME']]
@@ -167,7 +151,7 @@ if file:
                         for idx, p in enumerate(prods_b): ws2.write(l_r, idx+3, m_box[p].sum(), sum_fmt)
                         ws2.write(l_r, s_col, m_box[prods_b].sum().sum(), sum_fmt)
 
-                        # --- ชีท Order ---
+                        # ชีท 3: Order
                         ws3 = wb.add_worksheet("Order")
                         ws3.write(0, 0, "No.", h_fmt); ws3.write(0, 1, "TRIP", h_fmt); ws3.write(0, 2, "STORE NAME", h_fmt)
                         prods_o = [p for p in m_order.columns if p not in ['TRIP', 'STORE NAME']]
@@ -175,15 +159,11 @@ if file:
                         for i, row in m_order.iterrows():
                             r = i+1; ws3.write(r,0,i+1,d_fmt); ws3.write(r,1,row['TRIP'],d_fmt); ws3.write(r,2,row['STORE NAME'],d_fmt)
                             for idx, p in enumerate(prods_o): ws3.write(r, idx+3, row[p], d_fmt)
-
+                        
                         for ws in [ws1, ws2, ws3]: ws.set_column('C:C', 35)
 
                     st.balloons()
-                    st.success("✨ แปลงบิลสำเร็จแล้วค่ะพี่เดียร์!")
-                    st.download_button(label="📥 ดาวน์โหลดไฟล์ Excel (Final)", data=output.getvalue(), file_name="BNN_Final_Customized.xlsx")
+                    st.download_button(label="📥 ดาวน์โหลดไฟล์ Final Click", data=output.getvalue(), file_name="BNN_Final_Sorted.xlsx")
 
     except Exception as e:
-        st.error(f"❌ มีบางอย่างผิดพลาด: {e}")
-else:
-    with tab_setting: st.warning("⚠️ กรุณาอัปโหลดไฟล์ที่หน้า 'อัปโหลดไฟล์' ก่อนนะคะ")
-    with tab_process: st.warning("⚠️ กรุณาอัปโหลดไฟล์ที่หน้า 'อัปโหลดไฟล์' ก่อนนะคะ")
+        st.error(f"❌ โอ๊ะ! มีข้อผิดพลาด: {e}")
