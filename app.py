@@ -1,10 +1,10 @@
 import streamlit as st
 import pandas as pd
 import io
-from streamlit_sortables import sort_items # <--- ต้องติดตั้งตัวนี้เพิ่มนะครับ
+from streamlit_sortables import sort_items
 
 # --- UI CONFIGURATION ---
-st.set_page_config(page_title="Project น้องเดียร์แปลงบิล v7.0", layout="wide")
+st.set_page_config(page_title="Project น้องเดียร์แปลงบิล v8.0", layout="wide")
 
 def local_css(main_color, font_family):
     st.markdown(f"""
@@ -17,7 +17,6 @@ def local_css(main_color, font_family):
             background: linear-gradient(135deg, {main_color} 0%, #FF85A1 100%);
             color: white !important; border-radius: 12px; font-weight: bold; height: 60px; width: 100%;
         }}
-        /* ตกแต่งกล่องลากวาง */
         .st-sortable-item {{ background-color: #1A1C24 !important; border: 1px solid #444 !important; color: white !important; }}
         </style>
     """, unsafe_allow_html=True)
@@ -26,18 +25,24 @@ theme_color = st.sidebar.color_picker("ธีมสีหลัก", "#FF4B8B")
 font_choice = st.sidebar.selectbox("เลือกฟอนต์", ["Kanit", "Mitr", "Sarabun"])
 local_css(theme_color, font_choice)
 
-st.title(f"💖 Project น้องเดียร์แปลงบิล v7.0 (Drag & Drop)")
+st.title(f"💖 Project น้องเดียร์แปลงบิล v8.0")
+st.caption("ระบบจะเรียงลำดับสินค้าตามที่ปรากฏในไฟล์ต้นฉบับ (ใครมาก่อนอยู่ก่อน) และสามารถลากสลับเองได้เพิ่มเติมค่ะ")
 
 # --- SESSION STATE ---
 if 'order_box' not in st.session_state: st.session_state.order_box = []
 if 'order_total' not in st.session_state: st.session_state.order_total = []
+if 'last_file' not in st.session_state: st.session_state.last_file = None
 
 tab_upload, tab_setting, tab_process = st.tabs(["📥 1. อัปโหลดไฟล์", "↕️ 2. ลากวางลำดับสินค้า", "🚀 3. ประมวลผล"])
 
 with tab_upload:
     file = st.file_uploader("อัปโหลดไฟล์ Raw Data", type=["xlsx", "csv"])
-    if file:
-        st.success("อัปโหลดสำเร็จ! เชิญพี่เดียร์ไป 'ลากสลับลำดับ' ที่หน้า 2 ได้เลยค่ะ")
+    if file and file != st.session_state.last_file:
+        # ล้างค่าเก่าเมื่ออัปโหลดไฟล์ใหม่
+        st.session_state.order_box = []
+        st.session_state.order_total = []
+        st.session_state.last_file = file
+        st.success("อัปโหลดสำเร็จ! ระบบดึงลำดับตามไฟล์ให้เรียบร้อยแล้วค่ะ")
 
 if file:
     try:
@@ -53,9 +58,16 @@ if file:
             store_cols = [c for c in df_clean.columns[4:] if "Unnamed" not in c]
 
             all_rows = []
+            original_product_order = [] # เก็บรายชื่อสินค้าตามลำดับที่เจอในไฟล์
+
             for _, row in df_clean.iterrows():
                 product = str(row.get('Description', '')).strip()
                 if product in ['', 'nan', '0', '0.0'] or 'Description' in product: continue
+                
+                # เก็บชื่อสินค้าตามลำดับที่พบ (เฉพาะที่ยังไม่มีใน List)
+                if product not in original_product_order:
+                    original_product_order.append(product)
+
                 for col in store_cols:
                     try:
                         qty = float(row[col])
@@ -66,41 +78,34 @@ if file:
             full_df = pd.DataFrame(all_rows)
             meat_kw = ['เนื้อ', 'หมู', 'Meat', 'Pork']
             
-            # ดึงรายชื่อสินค้าเริ่มต้น
-            initial_box = sorted(full_df[~full_df['Product'].str.contains('|'.join(meat_kw), na=False)]['Product'].unique().tolist())
-            initial_total = sorted(full_df['Product'].unique().tolist())
+            # กรองรายการสินค้าตามลำดับ Original
+            initial_box = [p for p in original_product_order if not any(kw in p for kw in meat_kw)]
+            initial_total = original_product_order
 
-            # ถ้ายังไม่มีข้อมูลใน Session ให้ใช้ค่าเริ่มต้น
+            # ถ้ายังไม่มีข้อมูลใน Session (หรือเพิ่งเปลี่ยนไฟล์) ให้ใช้ค่าลำดับ Original
             if not st.session_state.order_box: st.session_state.order_box = initial_box
             if not st.session_state.order_total: st.session_state.order_total = initial_total
 
             with tab_setting:
-                st.subheader("🖱️ คลิกค้างที่ชื่อสินค้าแล้วลากสลับลำดับได้เลยค่ะ")
+                st.subheader("🖱️ ตรวจสอบลำดับ (ระบบเรียงตามไฟล์ต้นฉบับมาให้แล้ว)")
                 col1, col2 = st.columns(2)
-                
                 with col1:
                     st.markdown("### 📦 ชีท [จัดกล่อง]")
-                    # ฟังก์ชันลากวางสลับที่
                     st.session_state.order_box = sort_items(st.session_state.order_box, key="sort_box_ui")
-                
                 with col2:
                     st.markdown("### 📝 ชีท [Order]")
                     st.session_state.order_total = sort_items(st.session_state.order_total, key="sort_order_ui")
-                
-                st.info("💡 สินค้าที่อยู่บนสุด จะกลายเป็น Column แรก (ซ้ายสุด) ในไฟล์ Excel ค่ะ")
 
             with tab_process:
                 if st.button("🚀 ประมวลผลและสร้างไฟล์ Final"):
-                    # Matrix Data
                     m_weight = full_df[full_df['Product'].str.contains('|'.join(meat_kw), na=False)].pivot_table(index=['TRIP', 'STORE NAME'], columns='Product', values='Qty', aggfunc='sum').fillna(0).reset_index()
                     m_box = full_df[~full_df['Product'].str.contains('|'.join(meat_kw), na=False)].pivot_table(index=['TRIP', 'STORE NAME'], columns='Product', values='Qty', aggfunc='sum').fillna(0).reset_index()
                     m_order = full_df.pivot_table(index=['TRIP', 'STORE NAME'], columns='Product', values='Qty', aggfunc='sum').fillna(0).reset_index()
 
-                    # Re-index ตามลำดับที่ลากสลับไว้
+                    # Re-index ตามลำดับที่ได้ (ลากสลับได้ + อิง Original)
                     m_box = m_box[['TRIP', 'STORE NAME'] + [p for p in st.session_state.order_box if p in m_box.columns]]
                     m_order = m_order[['TRIP', 'STORE NAME'] + [p for p in st.session_state.order_total if p in m_order.columns]]
 
-                    # --- EXCEL WRITER (เหมือนเวอร์ชันก่อน) ---
                     output = io.BytesIO()
                     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                         wb = writer.book
@@ -108,19 +113,18 @@ if file:
                         d_fmt = wb.add_format({'border': 1, 'align': 'center'})
                         sum_fmt = wb.add_format({'bold': True, 'bg_color': '#D9EAD3', 'border': 1, 'num_format': '#,##0'})
 
-                        # [Logic การเขียน Sheet 1, 2, 3 เหมือนเดิม...]
-                        # ชีทน้ำหนัก
+                        # ชีทน้ำหนัก (เรียงตามไฟล์ต้นฉบับเช่นกัน)
                         ws1 = wb.add_worksheet("น้ำหนัก")
                         ws1.merge_range(0,0,1,0,"No.",h_fmt); ws1.merge_range(0,1,1,1,"TRIP",h_fmt); ws1.merge_range(0,2,1,2,"STORE NAME",h_fmt)
-                        prods_w = [p for p in m_weight.columns if p not in ['TRIP', 'STORE NAME']]
+                        prods_w_orig = [p for p in original_product_order if p in m_weight.columns and p not in ['TRIP', 'STORE NAME']]
                         c_ptr = 3
-                        for p in prods_w:
+                        for p in prods_w_orig:
                             ws1.write(0, c_ptr, "จำนวนสั่ง", h_fmt); ws1.write(1, c_ptr, p, h_fmt)
                             ws1.merge_range(0, c_ptr+1, 1, c_ptr+1, "จ่ายจริง", h_fmt); c_ptr += 2
                         for i, row in m_weight.iterrows():
                             r = i+2; ws1.write(r,0,i+1,d_fmt); ws1.write(r,1,row['TRIP'],d_fmt); ws1.write(r,2,row['STORE NAME'],d_fmt)
                             d_ptr = 3
-                            for p in prods_w:
+                            for p in prods_w_orig:
                                 ws1.write(r, d_ptr, row[p], d_fmt); ws1.write(r, d_ptr+1, "", d_fmt); d_ptr += 2
 
                         # ชีทจัดกล่อง
@@ -149,7 +153,7 @@ if file:
                         for ws in [ws1, ws2, ws3]: ws.set_column('C:C', 35)
 
                     st.balloons()
-                    st.download_button(label="📥 ดาวน์โหลดไฟล์ Final (เรียงตามที่ลากวาง)", data=output.getvalue(), file_name="BNN_น้องเดียร์_DragSorted.xlsx")
+                    st.download_button(label="📥 ดาวน์โหลดไฟล์ Final", data=output.getvalue(), file_name="BNN_Final_OriginalOrder.xlsx")
 
     except Exception as e:
-        st.error(f"❌ มีข้อผิดพลาด: {e}")
+        st.error(f"❌ โอ๊ะ! มีข้อผิดพลาด: {e}")
