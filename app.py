@@ -4,7 +4,7 @@ import io
 from streamlit_sortables import sort_items
 
 # --- UI CONFIGURATION ---
-st.set_page_config(page_title="Project น้องเดียร์ v18.0", layout="wide")
+st.set_page_config(page_title="Project น้องเดียร์ v19.0", layout="wide")
 
 def local_css(main_color, font_family):
     st.markdown(f"""
@@ -23,7 +23,7 @@ theme_color = st.sidebar.color_picker("ธีมสีหลัก", "#FF4B8B")
 font_choice = st.sidebar.selectbox("เลือกฟอนต์", ["Kanit", "Mitr", "Sarabun"])
 local_css(theme_color, font_choice)
 
-st.title(f"💖 Project น้องเดียร์แปลงบิล v18.0")
+st.title(f"💖 Project น้องเดียร์แปลงบิล v19.0")
 
 if 'order_box' not in st.session_state: st.session_state.order_box = []
 if 'order_total' not in st.session_state: st.session_state.order_total = []
@@ -95,24 +95,27 @@ if file:
                         tag_bnn = wb.add_format({'bold': True, 'size': 42, 'border': 2, 'align': 'center', 'valign': 'vcenter'})
                         tag_trip_val = wb.add_format({'bold': True, 'size': 42, 'border': 2, 'align': 'center', 'valign': 'vcenter'})
                         tag_label = wb.add_format({'bold': True, 'size': 20, 'border': 1, 'align': 'center', 'valign': 'vcenter'})
-                        tag_store = wb.add_format({'bold': True, 'size': 30, 'border': 1, 'align': 'center', 'valign': 'vcenter', 'shrink': True})
+                        tag_store = wb.add_format({'bold': True, 'size': 28, 'border': 1, 'align': 'center', 'valign': 'vcenter', 'shrink': True})
                         tag_prod = wb.add_format({'bold': True, 'size': 32, 'border': 1, 'valign': 'vcenter', 'indent': 1})
-                        tag_unit = wb.add_format({'bold': True, 'size': 26, 'border': 1, 'align': 'center', 'valign': 'vcenter'})
+                        tag_unit = wb.add_format({'bold': True, 'size': 24, 'border': 1, 'align': 'center', 'valign': 'vcenter'})
                         border_fmt = wb.add_format({'border': 1})
 
+                        # --- SHEET: ป้ายน้ำหนัก ---
                         ws_tag = wb.add_worksheet("ป้ายน้ำหนัก")
                         ws_tag.set_landscape() 
                         ws_tag.set_paper(9) # A4
-                        ws_tag.set_margins(0.2, 0.2, 0.2, 0.2)
-                        ws_tag.set_center_horizontally()
-                        ws_tag.set_center_vertically()
+                        ws_tag.set_margins(0.25, 0.25, 0.25, 0.25)
                         
-                        # ปรับ Column Width ให้สมดุล (รวมประมาณ 120-130)
-                        ws_tag.set_column('A:A', 35) 
-                        ws_tag.set_column('B:B', 25) 
-                        ws_tag.set_column('C:C', 15) 
-                        ws_tag.set_column('D:D', 20) 
-                        ws_tag.set_column('E:E', 20) 
+                        # แก้ไข Error: ใช้ center_horizontally และ center_vertically
+                        ws_tag.center_horizontally()
+                        ws_tag.center_vertically()
+                        
+                        # ปรับความกว้าง Column (รวมกันประมาณ 125)
+                        ws_tag.set_column('A:A', 35) # สินค้า
+                        ws_tag.set_column('B:B', 25) # ช่องว่างเขียน 1
+                        ws_tag.set_column('C:C', 15) # KG.
+                        ws_tag.set_column('D:D', 25) # ช่องว่างเขียน 2
+                        ws_tag.set_column('E:E', 25) # ตะกร้า
                         
                         fixed_items = ["เนื้อสันคอ", "เนื้อออส", "หมูสันคอ", "หมูสามชั้น", "หมูสันนอก"]
                         curr_r = 0
@@ -122,39 +125,33 @@ if file:
                             t_val = row_s['TRIP']
                             s_val = row_s['STORE NAME']
                             
-                            # Row 1: BNN | TRIP
                             ws_tag.merge_range(curr_r, 0, curr_r, 2, "BNN (สุกี้ตี๋น้อย)", tag_bnn)
                             ws_tag.merge_range(curr_r, 3, curr_r, 4, t_val, tag_trip_val)
-                            ws_tag.set_row(curr_r, 90) 
+                            ws_tag.set_row(curr_r, 100) # หัวข้อสูงขึ้น
                             
-                            # Row 2: STORE NAME | ชื่อร้าน
                             ws_tag.write(curr_r + 1, 0, "STORE NAME", tag_label)
                             ws_tag.merge_range(curr_r + 1, 1, curr_r + 1, 4, s_val, tag_store)
-                            ws_tag.set_row(curr_r + 1, 70)
+                            ws_tag.set_row(curr_r + 1, 80)
                             
                             curr_r += 2
-                            # Row 3-7: Fixed 5 Items
                             for item in fixed_items:
                                 ws_tag.write(curr_r, 0, item, tag_prod)
                                 ws_tag.write(curr_r, 1, "", border_fmt)
                                 ws_tag.write(curr_r, 2, "KG.", tag_unit)
                                 ws_tag.write(curr_r, 3, "", border_fmt)
                                 ws_tag.write(curr_r, 4, "ตะกร้า", tag_unit)
-                                ws_tag.set_row(curr_r, 75) # ปรับความสูงลงเล็กน้อยเพื่อให้อยู่ในหน้าเดียว
+                                ws_tag.set_row(curr_r, 80) # แถวสินค้าสูงพอดี 5 แถว
                                 curr_r += 1
                             
-                            # สั่งขึ้นหน้าใหม่
                             ws_tag.set_h_pagebreaks([curr_r])
                             curr_r += 1
 
-                        # บังคับให้อยู่ในหน้า 1x1 เพื่อไม่ให้ส่วนเกินหลุดไปหน้า 2
                         ws_tag.fit_to_pages(1, 1)
 
                         # --- ชีทอื่นๆ (น้ำหนัก, จัดกล่อง, Order) ---
                         h_fmt = wb.add_format({'bold': True, 'align': 'center', 'valign': 'vcenter', 'bg_color': theme_color, 'font_color': 'white', 'border': 1, 'text_wrap': True})
                         d_fmt = wb.add_format({'border': 1, 'align': 'center'})
 
-                        # (Code ส่วนจัดการ Sheet 1,2,3 คงเดิม)
                         ws1 = wb.add_worksheet("น้ำหนัก")
                         prods_w = [p for p in original_order if p in m_weight.columns and p not in ['TRIP', 'STORE NAME']]
                         ws1.write(0,0,"TRIP",h_fmt); ws1.write(0,1,"STORE NAME",h_fmt)
@@ -171,8 +168,10 @@ if file:
                             ws2.write(i+1, 0, row['TRIP'], d_fmt); ws2.write(i+1, 1, row['STORE NAME'], d_fmt)
                             for j, p in enumerate(prods_b): ws2.write(i+1, j+2, row[p], d_fmt)
 
+                        for ws in [ws1, ws2]: ws.set_column('B:B', 30); ws.set_column('C:ZZ', 12)
+
                     st.balloons()
-                    st.download_button("📥 ดาวน์โหลดไฟล์ Final v18", output.getvalue(), "BNN_Final_Perfect_A4_V18.xlsx")
+                    st.download_button("📥 ดาวน์โหลดไฟล์ Final v19", output.getvalue(), "BNN_Final_A4_V19.xlsx")
 
     except Exception as e:
         st.error(f"❌ พบข้อผิดพลาด: {e}")
