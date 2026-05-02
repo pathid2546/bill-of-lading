@@ -1,37 +1,49 @@
 import streamlit as st
 import pandas as pd
 import io
+from datetime import datetime
 from streamlit_sortables import sort_items
 
 # --- UI CONFIGURATION ---
-st.set_page_config(page_title="Project น้องเดียร์ v28.0 (Print Friendly)", layout="wide")
+st.set_page_config(page_title="BNN Smart Logistics System", layout="wide")
 
 def local_css(main_color, font_family):
     st.markdown(f"""
         <style>
         @import url('https://fonts.googleapis.com/css2?family={font_family.replace(" ", "+")}:wght@300;400;600&display=swap');
         html, body, [class*="css"], .main {{ background-color: #0F1117; color: #E0E0E0 !important; font-family: '{font_family}', sans-serif; }}
-        h1 {{ color: {main_color} !important; text-align: center; }}
+        h1 {{ 
+            background: linear-gradient(90deg, {main_color}, #FFFFFF);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-align: center; font-size: 3rem; font-weight: 800; padding: 1rem 0;
+        }}
+        .stTabs [aria-selected="true"] {{ background-color: {main_color} !important; color: white !important; border-radius: 8px; }}
         div.stButton > button {{
             background: linear-gradient(135deg, {main_color} 0%, #FF85A1 100%);
             color: white !important; border-radius: 12px; font-weight: bold; height: 60px; width: 100%;
+            border: none; transition: 0.3s;
         }}
+        div.stButton > button:hover {{ transform: scale(1.02); box-shadow: 0 10px 20px {main_color}44; }}
         </style>
     """, unsafe_allow_html=True)
 
-theme_color = st.sidebar.color_picker("ธีมสีปุ่มกด (UI)", "#FF4B8B")
-font_choice = st.sidebar.selectbox("เลือกฟอนต์", ["Kanit", "Mitr", "Sarabun"])
+# Sidebar settings
+theme_color = st.sidebar.color_picker("Customize Theme Color", "#FF4B8B")
+font_choice = st.sidebar.selectbox("Select Display Font", ["Kanit", "Mitr", "Sarabun"])
 local_css(theme_color, font_choice)
 
-st.title(f"💖 Project น้องเดียร์ v28.0 (B&W Print Ready)")
+st.markdown("<h1>BNN Smart Logistics System</h1>", unsafe_allow_html=True)
 
+# --- SESSION STATE ---
 if 'order_box' not in st.session_state: st.session_state.order_box = []
 if 'order_total' not in st.session_state: st.session_state.order_total = []
 
-tab_upload, tab_setting, tab_process = st.tabs(["📥 1. อัปโหลด", "↕️ 2. ลำดับสินค้า", "🚀 3. ประมวลผล"])
+tab_upload, tab_setting, tab_process = st.tabs(["📥 อัปโหลดข้อมูล", "↕️ จัดลำดับสินค้า", "🚀 ประมวลผลและดาวน์โหลด"])
 
-if file := st.file_uploader("อัปโหลดไฟล์ Excel", type=["xlsx"]):
+if file := st.file_uploader("ลากไฟล์ Excel มาวางที่นี่", type=["xlsx"]):
     try:
+        # Data Processing Logic (Core)
         route_df = pd.read_excel(file, sheet_name='Route', header=None)
         route_lookup = {str(r[0]).strip(): str(r[2]).strip() for _, r in route_df.iterrows() if pd.notna(r[0])}
         xls = pd.ExcelFile(file); main_sheet = xls.sheet_names[0]
@@ -65,12 +77,17 @@ if file := st.file_uploader("อัปโหลดไฟล์ Excel", type=["xl
             if not st.session_state.order_total: st.session_state.order_total = original_order
 
             with tab_setting:
+                st.info("💡 ลากวางเพื่อกำหนดลำดับสินค้าที่จะปรากฏในไฟล์ Excel")
                 c1, c2 = st.columns(2)
-                with c1: st.session_state.order_box = sort_items(st.session_state.order_box, key="box")
-                with c2: st.session_state.order_total = sort_items(st.session_state.order_total, key="total")
+                with c1: 
+                    st.markdown("📦 **ลำดับป้ายกล่อง (ของแห้ง)**")
+                    st.session_state.order_box = sort_items(st.session_state.order_box, key="box")
+                with c2: 
+                    st.markdown("📋 **ลำดับรายงานสรุป (ทั้งหมด)**")
+                    st.session_state.order_total = sort_items(st.session_state.order_total, key="total")
 
             with tab_process:
-                if st.button("🚀 ประมวลผลและเปลี่ยนสีตาราง"):
+                if st.button("Generate Final Documents"):
                     m_weight = full_df[full_df['Product'].str.contains('|'.join(meat_kw), na=False)].pivot_table(index=['TRIP', 'STORE NAME'], columns='Product', values='Qty', aggfunc='sum').fillna(0).reset_index()
                     m_box = full_df[~full_df['Product'].str.contains('|'.join(meat_kw), na=False)].pivot_table(index=['TRIP', 'STORE NAME'], columns='Product', values='Qty', aggfunc='sum').fillna(0).reset_index()
                     m_order = full_df.pivot_table(index=['TRIP', 'STORE NAME'], columns='Product', values='Qty', aggfunc='sum').fillna(0).reset_index()
@@ -83,13 +100,13 @@ if file := st.file_uploader("อัปโหลดไฟล์ Excel", type=["xl
                     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                         wb = writer.book
                         
-                        # --- ปรับสีหัวตารางเป็นสีอ่อน (Print-Friendly) ---
-                        header_bg = '#F2F2F2' # สีเทาอ่อนมาก
-                        h_f = wb.add_format({'bold':True, 'align':'center', 'valign':'vcenter', 'bg_color':header_bg, 'font_color':'black', 'border':1, 'text_wrap':True})
+                        # Style Formats
+                        header_bg = '#F2F2F2'
+                        h_f = wb.add_format({'bold':True, 'align':'center', 'valign':'vcenter', 'bg_color':header_bg, 'border':1, 'text_wrap':True})
                         d_f = wb.add_format({'border':1, 'align':'center'})
                         s_f = wb.add_format({'bold':True, 'bg_color':'#E9E9E9', 'border':1, 'num_format':'#,##0'})
 
-                        # --- 1. ป้ายน้ำหนัก (v26 Logic) ---
+                        # 1. ป้ายน้ำหนัก
                         ws_tag_w = wb.add_worksheet("ป้ายน้ำหนัก")
                         ws_tag_w.set_landscape(); ws_tag_w.set_margins(0.2, 0.2, 0.2, 0.2); ws_tag_w.fit_to_pages(1, 0)
                         f_bnn = wb.add_format({'bold':True, 'size':36, 'border':2, 'align':'center', 'valign':'vcenter', 'bg_color':header_bg})
@@ -115,7 +132,7 @@ if file := st.file_uploader("อัปโหลดไฟล์ Excel", type=["xl
                             row_idx += 8; breaks_w.append(row_idx)
                         ws_tag_w.set_h_pagebreaks(breaks_w)
 
-                        # --- 2. ป้ายกล่อง (v27 Logic) ---
+                        # 2. ป้ายกล่อง
                         ws_tag_b = wb.add_worksheet("ป้ายกล่อง")
                         ws_tag_b.set_landscape(); ws_tag_b.set_margins(0.2, 0.2, 0.2, 0.2); ws_tag_b.fit_to_pages(1, 0)
                         f_bnn_big = wb.add_format({'bold':True, 'size':60, 'border':2, 'align':'center', 'valign':'vcenter', 'bg_color':header_bg})
@@ -124,7 +141,6 @@ if file := st.file_uploader("อัปโหลดไฟล์ Excel", type=["xl
                         f_label_big = wb.add_format({'bold':True, 'size':40, 'border':1, 'align':'center', 'valign':'vcenter'})
                         f_trip_big = wb.add_format({'bold':True, 'size':70, 'border':1, 'align':'center', 'valign':'vcenter'})
                         ws_tag_b.set_column('A:A', 50); ws_tag_b.set_column('B:B', 60)
-                        
                         b_row = 0; breaks_b = []
                         for _, row_b in m_box.iterrows():
                             ws_tag_b.merge_range(b_row, 0, b_row, 1, "BNN (สุกี้ตี๋น้อย)", f_bnn_big); ws_tag_b.set_row(b_row, 120)
@@ -134,32 +150,37 @@ if file := st.file_uploader("อัปโหลดไฟล์ Excel", type=["xl
                             b_row += 4; breaks_b.append(b_row)
                         ws_tag_b.set_h_pagebreaks(breaks_b)
 
-                        # --- 3. ตารางข้อมูล (น้ำหนัก, จัดกล่อง, Order) ---
-                        ws_w = wb.add_worksheet("น้ำหนัก")
-                        ws1_cols = [p for p in original_order if p in m_weight.columns and p not in ['TRIP', 'STORE NAME']]
-                        ws_w.merge_range(0,0,1,0,"No.",h_f); ws_w.merge_range(0,1,1,1,"TRIP",h_f); ws_w.merge_range(0,2,1,2,"STORE NAME",h_f)
-                        c_idx = 3
-                        for p in ws1_cols:
-                            ws_w.write(0, c_idx, "จำนวนสั่ง", h_f); ws_w.write(1, c_idx, p, h_f); ws_w.merge_range(0, c_idx+1, 1, c_idx+1, "จ่ายจริง", h_f); c_idx += 2
-                        for i, row in m_weight.reset_index(drop=True).iterrows():
-                            r = i+2; ws_w.write(r,0,i+1,d_f); ws_w.write(r,1,row['TRIP'],d_f); ws_w.write(r,2,row['STORE NAME'],d_f)
-                            d_idx = 3
-                            for p in ws1_cols: ws_w.write(r, d_idx, row[p], d_f); ws_w.write(r, d_idx+1, "", d_f); d_idx += 2
+                        # 3. ตารางรายงาน
+                        sheets_data = {"น้ำหนัก": m_weight, "จัดกล่อง": m_box, "Order": m_order}
+                        for name, df_obj in sheets_data.items():
+                            ws = wb.add_worksheet(name)
+                            if name == "น้ำหนัก":
+                                ws1_cols = [p for p in original_order if p in df_obj.columns and p not in ['TRIP', 'STORE NAME']]
+                                ws.merge_range(0,0,1,0,"No.",h_f); ws.merge_range(0,1,1,1,"TRIP",h_f); ws.merge_range(0,2,1,2,"STORE NAME",h_f)
+                                c_idx = 3
+                                for p in ws1_cols:
+                                    ws.write(0, c_idx, "จำนวนสั่ง", h_f); ws.write(1, c_idx, p, h_f); ws.merge_range(0, c_idx+1, 1, c_idx+1, "จ่ายจริง", h_f); c_idx += 2
+                                for i, row in df_obj.reset_index(drop=True).iterrows():
+                                    r = i+2; ws.write(r,0,i+1,d_f); ws.write(r,1,row['TRIP'],d_f); ws.write(r,2,row['STORE NAME'],d_f)
+                                    d_idx = 3
+                                    for p in ws1_cols: ws.write(r, d_idx, row[p], d_f); ws.write(r, d_idx+1, "", d_f); d_idx += 2
+                            else:
+                                for idx, col in enumerate(df_obj.columns): ws.write(0, idx, col, h_f)
+                                for i, row in df_obj.reset_index(drop=True).iterrows():
+                                    for idx, val in enumerate(row): ws.write(i+1, idx, val, d_f if idx < len(row)-1 else s_f)
+                            ws.set_column('B:C', 25); ws.set_column('D:ZZ', 12)
 
-                        ws_b = wb.add_worksheet("จัดกล่อง")
-                        for idx, col in enumerate(m_box.columns): ws_b.write(0, idx, col, h_f)
-                        for i, row in m_box.reset_index(drop=True).iterrows():
-                            for idx, val in enumerate(row): ws_b.write(i+1, idx, val, d_f if idx < len(row)-1 else s_f)
-
-                        ws_o = wb.add_worksheet("Order")
-                        for idx, col in enumerate(m_order.columns): ws_o.write(0, idx, col, h_f)
-                        for i, row in m_order.reset_index(drop=True).iterrows():
-                            for idx, val in enumerate(row): ws_o.write(i+1, idx, val, d_f)
-
-                        for ws in [ws_w, ws_b, ws_o]: ws.set_column('B:C', 25); ws.set_column('D:ZZ', 12)
+                    # Create filename with current date
+                    today_str = datetime.now().strftime("%Y-%m-%d")
+                    final_filename = f"BNN_Logistics_Report_{today_str}.xlsx"
 
                     st.balloons()
-                    st.download_button("📥 ดาวน์โหลด v28 (หัวตารางสีอ่อน)", output.getvalue(), "BNN_V28_B&W.xlsx")
+                    st.download_button(
+                        label=f"📥 ดาวน์โหลดไฟล์: {final_filename}",
+                        data=output.getvalue(),
+                        file_name=final_filename,
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    )
 
     except Exception as e:
-        st.error(f"❌ พบข้อผิดพลาด: {e}")
+        st.error(f"⚠️ เกิดข้อผิดพลาดในการประมวลผล: {e}")
