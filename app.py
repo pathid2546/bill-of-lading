@@ -4,7 +4,7 @@ import io
 from streamlit_sortables import sort_items
 
 # --- UI CONFIGURATION ---
-st.set_page_config(page_title="Project น้องเดียร์ v25.0 (Final Fix)", layout="wide")
+st.set_page_config(page_title="Project น้องเดียร์ v26.0 (Perfect Print)", layout="wide")
 
 def local_css(main_color, font_family):
     st.markdown(f"""
@@ -23,19 +23,15 @@ theme_color = st.sidebar.color_picker("ธีมสีหลัก", "#FF4B8B")
 font_choice = st.sidebar.selectbox("เลือกฟอนต์", ["Kanit", "Mitr", "Sarabun"])
 local_css(theme_color, font_choice)
 
-st.title(f"💖 Project น้องเดียร์ v25.0")
+st.title(f"💖 Project น้องเดียร์ v26.0")
 
 if 'order_box' not in st.session_state: st.session_state.order_box = []
 if 'order_total' not in st.session_state: st.session_state.order_total = []
 
 tab_upload, tab_setting, tab_process = st.tabs(["📥 1. อัปโหลดไฟล์", "↕️ 2. ลากวางลำดับสินค้า", "🚀 3. ประมวลผล"])
 
-with tab_upload:
-    file = st.file_uploader("อัปโหลดไฟล์ Excel", type=["xlsx"])
-
-if file:
+if file := st.file_uploader("อัปโหลดไฟล์ Excel", type=["xlsx"]):
     try:
-        # ระบบอ่านข้อมูลเดิม (ห้ามเปลี่ยน)
         route_df = pd.read_excel(file, sheet_name='Route', header=None)
         route_lookup = {str(r[0]).strip(): str(r[2]).strip() for _, r in route_df.iterrows() if pd.notna(r[0])}
         xls = pd.ExcelFile(file); main_sheet = xls.sheet_names[0]
@@ -85,41 +81,35 @@ if file:
                     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                         wb = writer.book
                         
-                        # --- ปรับจูนป้ายน้ำหนัก (แก้ตามรูปที่เพี้ยน) ---
+                        # --- ปรับป้ายน้ำหนัก (ลดขนาดลงเพื่อให้จบในหน้าเดียว) ---
                         ws_tag = wb.add_worksheet("ป้ายน้ำหนัก")
                         ws_tag.set_landscape()
-                        ws_tag.set_paper(9) # A4
-                        ws_tag.set_margins(0.1, 0.1, 0.1, 0.1)
-                        # บังคับ Scale 100% และใช้ Fit to Page เพื่อความเป๊ะ
-                        ws_tag.set_print_scale(100)
+                        ws_tag.set_margins(0.2, 0.2, 0.2, 0.2)
                         ws_tag.fit_to_pages(1, 0) # 1 หน้ากว้าง
 
-                        # Formats ใหญ่พิเศษ
-                        f_bnn = wb.add_format({'bold':True, 'size':42, 'border':2, 'align':'center', 'valign':'vcenter', 'bg_color':'#EEEEEE'})
-                        f_trip = wb.add_format({'bold':True, 'size':48, 'border':2, 'align':'center', 'valign':'vcenter'})
-                        f_store = wb.add_format({'bold':True, 'size':34, 'border':1, 'align':'center', 'valign':'vcenter', 'shrink':True})
-                        f_prod = wb.add_format({'bold':True, 'size':32, 'border':1, 'valign':'vcenter', 'indent':1})
-                        f_unit = wb.add_format({'bold':True, 'size':26, 'border':1, 'align':'center', 'valign':'vcenter'})
+                        # Formats (ลดขนาดฟอนต์ลงเล็กน้อย)
+                        f_bnn = wb.add_format({'bold':True, 'size':36, 'border':2, 'align':'center', 'valign':'vcenter', 'bg_color':'#EEEEEE'})
+                        f_trip = wb.add_format({'bold':True, 'size':40, 'border':2, 'align':'center', 'valign':'vcenter'})
+                        f_store = wb.add_format({'bold':True, 'size':28, 'border':1, 'align':'center', 'valign':'vcenter', 'shrink':True})
+                        f_prod = wb.add_format({'bold':True, 'size':28, 'border':1, 'valign':'vcenter', 'indent':1})
+                        f_unit = wb.add_format({'bold':True, 'size':22, 'border':1, 'align':'center', 'valign':'vcenter'})
                         f_border = wb.add_format({'border':1})
 
-                        ws_tag.set_column('A:A', 40); ws_tag.set_column('B:B', 22); ws_tag.set_column('C:C', 15); ws_tag.set_column('D:D', 22); ws_tag.set_column('E:E', 20)
+                        ws_tag.set_column('A:A', 38); ws_tag.set_column('B:B', 20); ws_tag.set_column('C:C', 14); ws_tag.set_column('D:D', 20); ws_tag.set_column('E:E', 18)
 
                         fixed_items = ["เนื้อสันคอ", "เนื้อออส", "หมูสันคอ", "หมูสามชั้น", "หมูสันนอก"]
                         row_idx = 0
                         breaks = []
 
                         for _, row_s in m_weight[['TRIP', 'STORE NAME']].iterrows():
-                            # Header (BNN + TRIP)
                             ws_tag.merge_range(row_idx, 0, row_idx, 2, "BNN (สุกี้ตี๋น้อย)", f_bnn)
                             ws_tag.merge_range(row_idx, 3, row_idx, 4, row_s['TRIP'], f_trip)
-                            ws_tag.set_row(row_idx, 100) # บังคับความสูงแถวหัวข้อ
+                            ws_tag.set_row(row_idx, 80) # ลดความสูงหัวข้อ
                             
-                            # Store Name
                             ws_tag.write(row_idx + 1, 0, "STORE:", f_unit)
                             ws_tag.merge_range(row_idx + 1, 1, row_idx + 1, 4, row_s['STORE NAME'], f_store)
-                            ws_tag.set_row(row_idx + 1, 80)
+                            ws_tag.set_row(row_idx + 1, 70) # ลดความสูงชื่อร้าน
                             
-                            # Items
                             item_start = row_idx + 2
                             for i, item in enumerate(fixed_items):
                                 current_item_row = item_start + i
@@ -128,9 +118,9 @@ if file:
                                 ws_tag.write(current_item_row, 2, "KG.", f_unit)
                                 ws_tag.write(current_item_row, 3, "", f_border)
                                 ws_tag.write(current_item_row, 4, "ตะกร้า", f_unit)
-                                ws_tag.set_row(current_item_row, 85) # บังคับความสูงแถวสินค้า
+                                ws_tag.set_row(current_item_row, 75) # ลดความสูงแถวสินค้า
 
-                            row_idx += 8 # ขยับไปตำแหน่งของร้านถัดไป
+                            row_idx += 8
                             breaks.append(row_idx)
 
                         ws_tag.set_h_pagebreaks(breaks)
@@ -140,7 +130,7 @@ if file:
                         d_f = wb.add_format({'border':1, 'align':'center'})
                         s_f = wb.add_format({'bold':True, 'bg_color':'#D9EAD3', 'border':1, 'num_format':'#,##0'})
 
-                        # น้ำหนัก
+                        # ชีท น้ำหนัก
                         ws1 = wb.add_worksheet("น้ำหนัก")
                         ws1.merge_range(0,0,1,0,"No.",h_f); ws1.merge_range(0,1,1,1,"TRIP",h_f); ws1.merge_range(0,2,1,2,"STORE NAME",h_f)
                         prods_w = [p for p in original_order if p in m_weight.columns and p not in ['TRIP', 'STORE NAME']]
@@ -152,7 +142,7 @@ if file:
                             d_p = 3
                             for p in prods_w: ws1.write(r, d_p, row[p], d_f); ws1.write(r, d_p+1, "", d_f); d_p += 2
 
-                        # จัดกล่อง
+                        # ชีท จัดกล่อง
                         ws2 = wb.add_worksheet("จัดกล่อง")
                         ws2.write(0,0,"No.",h_f); ws2.write(0,1,"TRIP",h_f); ws2.write(0,2,"STORE NAME",h_f)
                         prods_b = [p for p in m_box.columns if p not in ['TRIP', 'STORE NAME']]
@@ -163,7 +153,7 @@ if file:
                             for idx, p in enumerate(prods_b): ws2.write(r, idx+3, row[p], d_f)
                             ws2.write(r, s_c, sum(row[p] for p in prods_b), s_f)
 
-                        # Order
+                        # ชีท Order
                         ws3 = wb.add_worksheet("Order")
                         ws3.write(0, 0, "No.", h_f); ws3.write(0, 1, "TRIP", h_f); ws3.write(0, 2, "STORE NAME", h_f)
                         prods_o = [p for p in m_order.columns if p not in ['TRIP', 'STORE NAME']]
@@ -175,7 +165,7 @@ if file:
                         for ws in [ws1, ws2, ws3]: ws.set_column('C:C', 35); ws.set_column('D:ZZ', 12)
 
                     st.balloons()
-                    st.download_button("📥 ดาวน์โหลด v25 (แก้หน้า Print เรียบร้อย)", output.getvalue(), "BNN_Fixed_V25.xlsx")
+                    st.download_button("📥 ดาวน์โหลด v26 (จบในหน้าเดียวแน่นอน)", output.getvalue(), "BNN_Perfect_V26.xlsx")
 
     except Exception as e:
         st.error(f"❌ พบข้อผิดพลาด: {e}")
