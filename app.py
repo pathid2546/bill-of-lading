@@ -4,7 +4,7 @@ import io
 from datetime import datetime
 from streamlit_sortables import sort_items
 
-# --- UI CONFIGURATION ---
+# --- UI CONFIGURATION (เปลี่ยนเฉพาะชื่อที่แสดงบนเว็บ) ---
 st.set_page_config(page_title="Mobile Logistics Co., Ltd.", layout="wide")
 
 def local_css(main_color, font_family):
@@ -16,34 +16,30 @@ def local_css(main_color, font_family):
             background: linear-gradient(90deg, {main_color}, #FFFFFF);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            text-align: center; font-size: 2.8rem; font-weight: 800; padding: 1rem 0;
+            text-align: center; font-size: 3rem; font-weight: 800; padding: 1rem 0;
         }}
-        .stTabs [aria-selected="true"] {{ background-color: {main_color} !important; color: white !important; border-radius: 8px; }}
         div.stButton > button {{
-            background: linear-gradient(135deg, {main_color} 0%, #3AB54A 100%);
+            background: linear-gradient(135deg, {main_color} 0%, #FF85A1 100%);
             color: white !important; border-radius: 12px; font-weight: bold; height: 60px; width: 100%;
-            border: none; transition: 0.3s;
         }}
-        div.stButton > button:hover {{ transform: scale(1.01); box-shadow: 0 8px 15px {main_color}44; }}
         </style>
     """, unsafe_allow_html=True)
 
-# Sidebar settings
-theme_color = st.sidebar.color_picker("Corporate Theme Color", "#2E5BFF")
-font_choice = st.sidebar.selectbox("Select Display Font", ["Kanit", "Mitr", "Sarabun"])
+theme_color = st.sidebar.color_picker("ธีมสีเว็บ", "#FF4B8B")
+font_choice = st.sidebar.selectbox("เลือกฟอนต์", ["Kanit", "Mitr", "Sarabun"])
 local_css(theme_color, font_choice)
 
+# ชื่อบนหน้าเว็บเปลี่ยนเป็น Mobile Logistics แต่ข้างในเป็น BNN
 st.markdown("<h1>Mobile Logistics Co., Ltd.</h1>", unsafe_allow_html=True)
 
 # --- SESSION STATE ---
 if 'order_box' not in st.session_state: st.session_state.order_box = []
 if 'order_total' not in st.session_state: st.session_state.order_total = []
 
-tab_upload, tab_setting, tab_process = st.tabs(["📥 Import Data", "↕️ Product Sequencing", "🚀 Generate Documents"])
+tab_upload, tab_setting, tab_process = st.tabs(["📥 อัปโหลดไฟล์", "↕️ ลำดับสินค้า", "🚀 ประมวลผล"])
 
-if file := st.file_uploader("Upload Logistics Excel File", type=["xlsx"]):
+if file := st.file_uploader("อัปโหลด Excel", type=["xlsx"]):
     try:
-        # Core Data Processing
         route_df = pd.read_excel(file, sheet_name='Route', header=None)
         route_lookup = {str(r[0]).strip(): str(r[2]).strip() for _, r in route_df.iterrows() if pd.notna(r[0])}
         xls = pd.ExcelFile(file); main_sheet = xls.sheet_names[0]
@@ -69,7 +65,7 @@ if file := st.file_uploader("Upload Logistics Excel File", type=["xlsx"]):
                         if qty > 0:
                             col_idx = list(df_clean.columns).index(col_name)
                             current_store_code = str(store_codes_row[col_idx]).strip()
-                            all_rows.append({'TRIP': route_lookup.get(current_store_code, "N/A"), 'STORE NAME': col_name, 'Product': product, 'Qty': qty})
+                            all_rows.append({'TRIP': route_lookup.get(current_store_code, "ไม่พบรหัส"), 'STORE NAME': col_name, 'Product': product, 'Qty': qty})
                     except: continue
 
             full_df = pd.DataFrame(all_rows); meat_kw = ['เนื้อ', 'หมู', 'Meat', 'Pork']
@@ -77,17 +73,16 @@ if file := st.file_uploader("Upload Logistics Excel File", type=["xlsx"]):
             if not st.session_state.order_total: st.session_state.order_total = original_order
 
             with tab_setting:
-                st.info("💡 จัดลำดับสินค้าตามที่ต้องการให้แสดงในรายงานและป้ายกล่อง")
                 c1, c2 = st.columns(2)
                 with c1: 
-                    st.markdown("📦 **Label Sequence (Dry Goods)**")
-                    st.session_state.order_box = sort_items(st.session_state.order_box, key="box_seq")
+                    st.markdown("📦 **ลำดับป้ายกล่อง**")
+                    st.session_state.order_box = sort_items(st.session_state.order_box, key="box")
                 with c2: 
-                    st.markdown("📋 **Report Sequence (All Items)**")
-                    st.session_state.order_total = sort_items(st.session_state.order_total, key="total_seq")
+                    st.markdown("📋 **ลำดับรายงานสรุป**")
+                    st.session_state.order_total = sort_items(st.session_state.order_total, key="total")
 
             with tab_process:
-                if st.button("Generate Mobile Logistics Documents"):
+                if st.button("🚀 ประมวลผลสร้างไฟล์"):
                     m_weight = full_df[full_df['Product'].str.contains('|'.join(meat_kw), na=False)].pivot_table(index=['TRIP', 'STORE NAME'], columns='Product', values='Qty', aggfunc='sum').fillna(0).reset_index()
                     m_box = full_df[~full_df['Product'].str.contains('|'.join(meat_kw), na=False)].pivot_table(index=['TRIP', 'STORE NAME'], columns='Product', values='Qty', aggfunc='sum').fillna(0).reset_index()
                     m_order = full_df.pivot_table(index=['TRIP', 'STORE NAME'], columns='Product', values='Qty', aggfunc='sum').fillna(0).reset_index()
@@ -99,18 +94,15 @@ if file := st.file_uploader("Upload Logistics Excel File", type=["xlsx"]):
                     output = io.BytesIO()
                     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                         wb = writer.book
-                        
-                        # Style Formats
                         header_bg = '#F2F2F2'
-                        corp_name = "Mobile Logistics Co., Ltd."
-                        h_f = wb.add_format({'bold':True, 'align':'center', 'valign':'vcenter', 'bg_color':header_bg, 'border':1, 'text_wrap':True})
-                        d_f = wb.add_format({'border':1, 'align':'center'})
-                        s_f = wb.add_format({'bold':True, 'bg_color':'#E9E9E9', 'border':1, 'num_format':'#,##0'})
+                        
+                        # กลับไปใช้ชื่อ BNN ในไฟล์ตามเดิม
+                        label_title = "BNN (สุกี้ตี๋น้อย)"
 
-                        # 1. ป้ายน้ำหนัก (Weight Tags)
+                        # 1. ป้ายน้ำหนัก (BNN)
                         ws_tag_w = wb.add_worksheet("ป้ายน้ำหนัก")
                         ws_tag_w.set_landscape(); ws_tag_w.set_margins(0.2, 0.2, 0.2, 0.2); ws_tag_w.fit_to_pages(1, 0)
-                        f_corp = wb.add_format({'bold':True, 'size':30, 'border':2, 'align':'center', 'valign':'vcenter', 'bg_color':header_bg})
+                        f_bnn = wb.add_format({'bold':True, 'size':36, 'border':2, 'align':'center', 'valign':'vcenter', 'bg_color':header_bg})
                         f_trip_v = wb.add_format({'bold':True, 'size':40, 'border':2, 'align':'center', 'valign':'vcenter'})
                         f_store_v = wb.add_format({'bold':True, 'size':28, 'border':1, 'align':'center', 'valign':'vcenter', 'shrink':True})
                         f_prod_v = wb.add_format({'bold':True, 'size':28, 'border':1, 'valign':'vcenter', 'indent':1})
@@ -120,7 +112,7 @@ if file := st.file_uploader("Upload Logistics Excel File", type=["xlsx"]):
                         fixed_items = ["เนื้อสันคอ", "เนื้อออส", "หมูสันคอ", "หมูสามชั้น", "หมูสันนอก"]
                         row_idx = 0; breaks_w = []
                         for _, row_s in m_weight[['TRIP', 'STORE NAME']].iterrows():
-                            ws_tag_w.merge_range(row_idx, 0, row_idx, 2, corp_name, f_corp)
+                            ws_tag_w.merge_range(row_idx, 0, row_idx, 2, label_title, f_bnn)
                             ws_tag_w.merge_range(row_idx, 3, row_idx, 4, row_s['TRIP'], f_trip_v)
                             ws_tag_w.set_row(row_idx, 80)
                             ws_tag_w.write(row_idx + 1, 0, "STORE:", f_unit_v)
@@ -128,15 +120,15 @@ if file := st.file_uploader("Upload Logistics Excel File", type=["xlsx"]):
                             ws_tag_w.set_row(row_idx + 1, 70)
                             for i, item in enumerate(fixed_items):
                                 r = row_idx + 2 + i
-                                ws_tag_w.write(r, 0, item, f_prod_v); ws_tag_w.write(r, 1, "", d_f); ws_tag_w.write(r, 2, "KG.", f_unit_v)
-                                ws_tag_w.write(r, 3, "", d_f); ws_tag_w.write(r, 4, "ตะกร้า", f_unit_v); ws_tag_w.set_row(r, 75)
+                                ws_tag_w.write(r, 0, item, f_prod_v); ws_tag_w.write(r, 1, "", f_unit_v); ws_tag_w.write(r, 2, "KG.", f_unit_v)
+                                ws_tag_w.write(r, 3, "", f_unit_v); ws_tag_w.write(r, 4, "ตะกร้า", f_unit_v); ws_tag_w.set_row(r, 75)
                             row_idx += 8; breaks_w.append(row_idx)
                         ws_tag_w.set_h_pagebreaks(breaks_w)
 
-                        # 2. ป้ายกล่อง (Box Labels)
+                        # 2. ป้ายกล่อง (BNN)
                         ws_tag_b = wb.add_worksheet("ป้ายกล่อง")
                         ws_tag_b.set_landscape(); ws_tag_b.set_margins(0.2, 0.2, 0.2, 0.2); ws_tag_b.fit_to_pages(1, 0)
-                        f_corp_big = wb.add_format({'bold':True, 'size':45, 'border':2, 'align':'center', 'valign':'vcenter', 'bg_color':header_bg})
+                        f_bnn_big = wb.add_format({'bold':True, 'size':60, 'border':2, 'align':'center', 'valign':'vcenter', 'bg_color':header_bg})
                         f_store_big = wb.add_format({'bold':True, 'size':35, 'border':1, 'align':'center', 'valign':'vcenter', 'text_wrap':True})
                         f_qty_big = wb.add_format({'bold':True, 'size':80, 'border':1, 'align':'center', 'valign':'vcenter'})
                         f_label_big = wb.add_format({'bold':True, 'size':40, 'border':1, 'align':'center', 'valign':'vcenter'})
@@ -144,14 +136,18 @@ if file := st.file_uploader("Upload Logistics Excel File", type=["xlsx"]):
                         ws_tag_b.set_column('A:A', 50); ws_tag_b.set_column('B:B', 60)
                         b_row = 0; breaks_b = []
                         for _, row_b in m_box.iterrows():
-                            ws_tag_b.merge_range(b_row, 0, b_row, 1, corp_name, f_corp_big); ws_tag_b.set_row(b_row, 120)
+                            ws_tag_b.merge_range(b_row, 0, b_row, 1, label_title, f_bnn_big); ws_tag_b.set_row(b_row, 120)
                             ws_tag_b.write(b_row+1, 0, "STORE NAME", f_label_big); ws_tag_b.write(b_row+1, 1, row_b['STORE NAME'], f_store_big); ws_tag_b.set_row(b_row+1, 100)
                             ws_tag_b.write(b_row+2, 0, "จำนวนกล่อง", f_label_big); ws_tag_b.write(b_row+2, 1, row_b['รวมจำนวน'], f_qty_big); ws_tag_b.set_row(b_row+2, 130)
                             ws_tag_b.write(b_row+3, 0, "TRIP NO.", f_label_big); ws_tag_b.write(b_row+3, 1, row_b['TRIP'], f_trip_big); ws_tag_b.set_row(b_row+3, 120)
                             b_row += 4; breaks_b.append(b_row)
                         ws_tag_b.set_h_pagebreaks(breaks_b)
 
-                        # 3. Reports
+                        # 3. ตารางสรุป (สีอ่อน)
+                        h_f = wb.add_format({'bold':True, 'align':'center', 'valign':'vcenter', 'bg_color':header_bg, 'border':1, 'text_wrap':True})
+                        d_f = wb.add_format({'border':1, 'align':'center'})
+                        s_f = wb.add_format({'bold':True, 'bg_color':'#E9E9E9', 'border':1, 'num_format':'#,##0'})
+                        
                         sheets_data = {"น้ำหนัก": m_weight, "จัดกล่อง": m_box, "Order": m_order}
                         for name, df_obj in sheets_data.items():
                             ws = wb.add_worksheet(name)
@@ -171,17 +167,12 @@ if file := st.file_uploader("Upload Logistics Excel File", type=["xlsx"]):
                                     for idx, val in enumerate(r_val): ws.write(i+1, idx, val, d_f if idx < len(r_val)-1 else s_f)
                             ws.set_column('B:C', 25); ws.set_column('D:ZZ', 12)
 
-                    # Filename with date
+                    # ชื่อไฟล์ตามวันที่
                     today_str = datetime.now().strftime("%Y-%m-%d")
                     final_filename = f"Mobile_Logistics_Report_{today_str}.xlsx"
 
                     st.balloons()
-                    st.download_button(
-                        label=f"📥 Download Report: {final_filename}",
-                        data=output.getvalue(),
-                        file_name=final_filename,
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                    )
+                    st.download_button(label=f"📥 ดาวน์โหลด: {final_filename}", data=output.getvalue(), file_name=final_filename)
 
     except Exception as e:
-        st.error(f"⚠️ Error processing file: {e}")
+        st.error(f"⚠️ Error: {e}")
