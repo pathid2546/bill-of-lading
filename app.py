@@ -4,7 +4,7 @@ import io
 from streamlit_sortables import sort_items
 
 # --- UI CONFIGURATION ---
-st.set_page_config(page_title="Project น้องเดียร์ v17.0", layout="wide")
+st.set_page_config(page_title="Project น้องเดียร์ v18.0", layout="wide")
 
 def local_css(main_color, font_family):
     st.markdown(f"""
@@ -23,7 +23,7 @@ theme_color = st.sidebar.color_picker("ธีมสีหลัก", "#FF4B8B")
 font_choice = st.sidebar.selectbox("เลือกฟอนต์", ["Kanit", "Mitr", "Sarabun"])
 local_css(theme_color, font_choice)
 
-st.title(f"💖 Project น้องเดียร์แปลงบิล v17.0")
+st.title(f"💖 Project น้องเดียร์แปลงบิล v18.0")
 
 if 'order_box' not in st.session_state: st.session_state.order_box = []
 if 'order_total' not in st.session_state: st.session_state.order_total = []
@@ -91,26 +91,28 @@ if file:
                     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                         wb = writer.book
                         
-                        # --- ป้ายน้ำหนัก FORMATS (ปรับขนาดใหญ่พิเศษ) ---
-                        tag_bnn = wb.add_format({'bold': True, 'size': 48, 'border': 2, 'align': 'center', 'valign': 'vcenter'})
-                        tag_trip_val = wb.add_format({'bold': True, 'size': 48, 'border': 2, 'align': 'center', 'valign': 'vcenter'})
-                        tag_label = wb.add_format({'bold': True, 'size': 22, 'border': 1, 'align': 'center', 'valign': 'vcenter', 'shrink': True})
-                        tag_store = wb.add_format({'bold': True, 'size': 32, 'border': 1, 'align': 'center', 'valign': 'vcenter'})
-                        tag_prod = wb.add_format({'bold': True, 'size': 36, 'border': 1, 'valign': 'vcenter', 'indent': 1})
-                        tag_unit = wb.add_format({'bold': True, 'size': 28, 'border': 1, 'align': 'center', 'valign': 'vcenter'})
+                        # --- FORMATS ---
+                        tag_bnn = wb.add_format({'bold': True, 'size': 42, 'border': 2, 'align': 'center', 'valign': 'vcenter'})
+                        tag_trip_val = wb.add_format({'bold': True, 'size': 42, 'border': 2, 'align': 'center', 'valign': 'vcenter'})
+                        tag_label = wb.add_format({'bold': True, 'size': 20, 'border': 1, 'align': 'center', 'valign': 'vcenter'})
+                        tag_store = wb.add_format({'bold': True, 'size': 30, 'border': 1, 'align': 'center', 'valign': 'vcenter', 'shrink': True})
+                        tag_prod = wb.add_format({'bold': True, 'size': 32, 'border': 1, 'valign': 'vcenter', 'indent': 1})
+                        tag_unit = wb.add_format({'bold': True, 'size': 26, 'border': 1, 'align': 'center', 'valign': 'vcenter'})
                         border_fmt = wb.add_format({'border': 1})
 
                         ws_tag = wb.add_worksheet("ป้ายน้ำหนัก")
                         ws_tag.set_landscape() 
                         ws_tag.set_paper(9) # A4
                         ws_tag.set_margins(0.2, 0.2, 0.2, 0.2)
+                        ws_tag.set_center_horizontally()
+                        ws_tag.set_center_vertically()
                         
-                        # ขยายความกว้าง Column ให้เต็มหน้าแนวนอน (รวมประมาณ 130-140 สำหรับแนวนอน)
-                        ws_tag.set_column('A:A', 35) # สินค้า
-                        ws_tag.set_column('B:B', 30) # ช่องว่างเขียน 1
-                        ws_tag.set_column('C:C', 15) # KG.
-                        ws_tag.set_column('D:D', 20) # ช่องว่างเขียน 2
-                        ws_tag.set_column('E:E', 20) # ตะกร้า
+                        # ปรับ Column Width ให้สมดุล (รวมประมาณ 120-130)
+                        ws_tag.set_column('A:A', 35) 
+                        ws_tag.set_column('B:B', 25) 
+                        ws_tag.set_column('C:C', 15) 
+                        ws_tag.set_column('D:D', 20) 
+                        ws_tag.set_column('E:E', 20) 
                         
                         fixed_items = ["เนื้อสันคอ", "เนื้อออส", "หมูสันคอ", "หมูสามชั้น", "หมูสันนอก"]
                         curr_r = 0
@@ -123,12 +125,12 @@ if file:
                             # Row 1: BNN | TRIP
                             ws_tag.merge_range(curr_r, 0, curr_r, 2, "BNN (สุกี้ตี๋น้อย)", tag_bnn)
                             ws_tag.merge_range(curr_r, 3, curr_r, 4, t_val, tag_trip_val)
-                            ws_tag.set_row(curr_r, 100) # ความสูงแถวหัวข้อ
+                            ws_tag.set_row(curr_r, 90) 
                             
                             # Row 2: STORE NAME | ชื่อร้าน
                             ws_tag.write(curr_r + 1, 0, "STORE NAME", tag_label)
                             ws_tag.merge_range(curr_r + 1, 1, curr_r + 1, 4, s_val, tag_store)
-                            ws_tag.set_row(curr_r + 1, 80)
+                            ws_tag.set_row(curr_r + 1, 70)
                             
                             curr_r += 2
                             # Row 3-7: Fixed 5 Items
@@ -138,22 +140,21 @@ if file:
                                 ws_tag.write(curr_r, 2, "KG.", tag_unit)
                                 ws_tag.write(curr_r, 3, "", border_fmt)
                                 ws_tag.write(curr_r, 4, "ตะกร้า", tag_unit)
-                                ws_tag.set_row(curr_r, 85) # ความสูงแถวสินค้า
+                                ws_tag.set_row(curr_r, 75) # ปรับความสูงลงเล็กน้อยเพื่อให้อยู่ในหน้าเดียว
                                 curr_r += 1
                             
                             # สั่งขึ้นหน้าใหม่
                             ws_tag.set_h_pagebreaks([curr_r])
                             curr_r += 1
 
-                        # ไม่ต้อง fit_to_pages(1, 1) เพราะจะทำให้รูปเล็ก
-                        # ใช้แค่ fit_to_pages(1, 0) เพื่อคุมความกว้าง แต่ให้ความสูงไหลตาม Row height
-                        ws_tag.fit_to_pages(1, 0)
+                        # บังคับให้อยู่ในหน้า 1x1 เพื่อไม่ให้ส่วนเกินหลุดไปหน้า 2
+                        ws_tag.fit_to_pages(1, 1)
 
-                        # --- SHEET อื่นๆ ---
-                        # (เหมือน v16)
+                        # --- ชีทอื่นๆ (น้ำหนัก, จัดกล่อง, Order) ---
                         h_fmt = wb.add_format({'bold': True, 'align': 'center', 'valign': 'vcenter', 'bg_color': theme_color, 'font_color': 'white', 'border': 1, 'text_wrap': True})
                         d_fmt = wb.add_format({'border': 1, 'align': 'center'})
-                        
+
+                        # (Code ส่วนจัดการ Sheet 1,2,3 คงเดิม)
                         ws1 = wb.add_worksheet("น้ำหนัก")
                         prods_w = [p for p in original_order if p in m_weight.columns and p not in ['TRIP', 'STORE NAME']]
                         ws1.write(0,0,"TRIP",h_fmt); ws1.write(0,1,"STORE NAME",h_fmt)
@@ -171,7 +172,7 @@ if file:
                             for j, p in enumerate(prods_b): ws2.write(i+1, j+2, row[p], d_fmt)
 
                     st.balloons()
-                    st.download_button("📥 ดาวน์โหลดไฟล์ Final BNN v17", output.getvalue(), "BNN_Final_A4_V17.xlsx")
+                    st.download_button("📥 ดาวน์โหลดไฟล์ Final v18", output.getvalue(), "BNN_Final_Perfect_A4_V18.xlsx")
 
     except Exception as e:
         st.error(f"❌ พบข้อผิดพลาด: {e}")
