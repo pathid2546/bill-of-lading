@@ -69,8 +69,8 @@ if file := st.file_uploader("อัปโหลด Excel", type=["xlsx"]):
 
             full_df = pd.DataFrame(all_rows); meat_kw = ['เนื้อ', 'หมู', 'Meat', 'Pork']
             
-            # ล็อคลำดับ 4 ตัวแรกตามภาพ
-            fixed_top = ["คิมมาริ", "ชีสมอสซาเรลล่า", "น้ำจิ้มพอนสึ ยูสุ (ถุง 2 ก.ก.)", "น้ำจิ้มสุกี้"]
+            # 🔥 เรียงลำดับสินค้าตามรูปภาพ
+            fixed_top = ["ปูอัด", "ปูอัดชีส", "หอยเชลล์โฮตาเตะญี่ปุ่น(NW100%)", "ปลาดอลลี่ NW 70% (200-400)", "ชีสมอสซาเรลล่า", "คิมมาริ", "น้ำจิ้มพอนสึ ยูสุ (ถุง 2 ก.ก.)", "น้ำจิ้มสุกี้"]
             
             if not st.session_state.order_box: 
                 box_items = [p for p in original_order if not any(kw in p for kw in meat_kw)]
@@ -81,7 +81,7 @@ if file := st.file_uploader("อัปโหลด Excel", type=["xlsx"]):
             with tab_setting:
                 c1, c2 = st.columns(2)
                 with c1: 
-                    st.markdown("📦 **ลำดับป้ายกล่อง**")
+                    st.markdown("📦 **ลำดับป้ายกล่อง (เรียงตามรูป)**")
                     st.session_state.order_box = sort_items(st.session_state.order_box, key="box")
                 with c2: 
                     st.markdown("📋 **ลำดับรายงานสรุป**")
@@ -102,37 +102,13 @@ if file := st.file_uploader("อัปโหลด Excel", type=["xlsx"]):
                         wb = writer.book
                         header_bg = '#F2F2F2'
                         label_title = "BNN (สุกี้ตี๋น้อย)"
-
+                        
                         # ฟอร์แมต
                         h_f = wb.add_format({'bold':True, 'align':'center', 'valign':'vcenter', 'bg_color':header_bg, 'border':1, 'text_wrap':True})
                         d_f = wb.add_format({'border':1, 'align':'center'})
                         s_f = wb.add_format({'bold':True, 'bg_color':'#E9E9E9', 'border':1, 'num_format':'#,##0'})
 
-                        # --- ชีทจัดกล่อง (เพิ่ม No. และ TOTAL) ---
-                        ws2 = wb.add_worksheet("จัดกล่อง")
-                        cols = list(m_box.columns) # [TRIP, STORE NAME, สินค้า..., รวมจำนวน]
-                        
-                        # เขียน Header (เริ่มที่คอลัมน์ B เพื่อเว้น A ให้ No.)
-                        ws2.write(0, 0, "No.", h_f)
-                        for idx, col in enumerate(cols):
-                            ws2.write(0, idx + 1, col, h_f)
-
-                        # เขียนข้อมูล
-                        for i, r_val in m_box.reset_index(drop=True).iterrows():
-                            curr_row = i + 1
-                            ws2.write(curr_row, 0, i + 1, d_f) # ลำดับ No. 1, 2, 3...
-                            for idx, val in enumerate(r_val):
-                                # คอลัมน์ "รวมจำนวน" ใช้ format s_f
-                                ws2.write(curr_row, idx + 1, val, s_f if cols[idx] == 'รวมจำนวน' else d_f)
-
-                        # เพิ่มแถว TOTAL ท้ายตาราง
-                        last_row = len(m_box) + 1
-                        ws2.write(last_row, 2, "TOTAL", s_f) # เขียนคำว่า TOTAL ที่คอลัมน์ STORE NAME (index 2)
-                        for idx, col in enumerate(cols):
-                            if col not in ['TRIP', 'STORE NAME']:
-                                ws2.write(last_row, idx + 1, m_box[col].sum(), s_f)
-
-                        # --- ชีทป้ายน้ำหนัก ---
+                        # --- 1. ป้ายน้ำหนัก ---
                         ws_tag_w = wb.add_worksheet("ป้ายน้ำหนัก")
                         ws_tag_w.set_landscape(); ws_tag_w.set_margins(0.2, 0.2, 0.2, 0.2); ws_tag_w.fit_to_pages(1, 0)
                         f_bnn = wb.add_format({'bold':True, 'size':36, 'border':2, 'align':'center', 'valign':'vcenter', 'bg_color':header_bg})
@@ -158,7 +134,7 @@ if file := st.file_uploader("อัปโหลด Excel", type=["xlsx"]):
                             row_idx += 8; breaks_w.append(row_idx)
                         ws_tag_w.set_h_pagebreaks(breaks_w)
 
-                        # --- ชีทป้ายกล่อง ---
+                        # --- 2. ป้ายกล่อง ---
                         ws_tag_b = wb.add_worksheet("ป้ายกล่อง")
                         ws_tag_b.set_landscape(); ws_tag_b.set_margins(0.2, 0.2, 0.2, 0.2); ws_tag_b.fit_to_pages(1, 0)
                         f_bnn_big = wb.add_format({'bold':True, 'size':60, 'border':2, 'align':'center', 'valign':'vcenter', 'bg_color':header_bg})
@@ -176,36 +152,43 @@ if file := st.file_uploader("อัปโหลด Excel", type=["xlsx"]):
                             b_row += 4; breaks_b.append(b_row)
                         ws_tag_b.set_h_pagebreaks(breaks_b)
 
-                        # --- ชีทสรุปอื่นๆ ---
-                        sheets_other = {"น้ำหนัก": m_weight, "Order": m_order}
-                        for name, df_obj in sheets_other.items():
-                            ws = wb.add_worksheet(name)
-                            if name == "น้ำหนัก":
-                                ws_cols = [p for p in original_order if p in df_obj.columns and p not in ['TRIP', 'STORE NAME']]
-                                ws.merge_range(0,0,1,0,"No.",h_f); ws.merge_range(0,1,1,1,"TRIP",h_f); ws.merge_range(0,2,1,2,"STORE NAME",h_f)
-                                c_idx = 3
-                                for p in ws_cols:
-                                    ws.write(0, c_idx, "จำนวนสั่ง", h_f); ws.write(1, c_idx, p, h_f); ws.merge_range(0, c_idx+1, 1, c_idx+1, "จ่ายจริง", h_f); c_idx += 2
-                                for i, r_val in df_obj.reset_index(drop=True).iterrows():
-                                    row_n = i+2; ws.write(row_n,0,i+1,d_f); ws.write(row_n,1,r_val['TRIP'],d_f); ws.write(row_n,2,r_val['STORE NAME'],d_f)
-                                    d_idx = 3
-                                    for p in ws_cols: ws.write(row_n, d_idx, r_val[p], d_f); ws.write(row_n, d_idx+1, "", d_f); d_idx += 2
-                            else: # Sheet Order
-                                ws.write(0, 0, "No.", h_f)
-                                for idx, col in enumerate(df_obj.columns): ws.write(0, idx + 1, col, h_f)
-                                for i, r_val in df_obj.reset_index(drop=True).iterrows():
-                                    ws.write(i+1, 0, i+1, d_f)
-                                    for idx, val in enumerate(r_val): ws.write(i+1, idx+1, val, d_f)
-                            
-                            ws.set_column('B:C', 25); ws.set_column('D:ZZ', 12)
-                        
-                        # ตั้งความกว้างคอลัมน์หน้าจัดกล่อง
-                        ws2.set_column('A:A', 5); ws2.set_column('B:C', 25); ws2.set_column('D:ZZ', 12)
+                        # --- 3. น้ำหนัก ---
+                        ws3 = wb.add_worksheet("น้ำหนัก")
+                        ws_cols = [p for p in original_order if p in m_weight.columns and p not in ['TRIP', 'STORE NAME']]
+                        ws3.merge_range(0,0,1,0,"No.",h_f); ws3.merge_range(0,1,1,1,"TRIP",h_f); ws3.merge_range(0,2,1,2,"STORE NAME",h_f)
+                        c_idx = 3
+                        for p in ws_cols:
+                            ws3.write(0, c_idx, "จำนวนสั่ง", h_f); ws3.write(1, c_idx, p, h_f); ws3.merge_range(0, c_idx+1, 1, c_idx+1, "จ่ายจริง", h_f); c_idx += 2
+                        for i, r_val in m_weight.reset_index(drop=True).iterrows():
+                            row_n = i+2; ws3.write(row_n,0,i+1,d_f); ws3.write(row_n,1,r_val['TRIP'],d_f); ws3.write(row_n,2,r_val['STORE NAME'],d_f)
+                            d_idx = 3
+                            for p in ws_cols: ws3.write(row_n, d_idx, r_val[p], d_f); ws3.write(row_n, d_idx+1, "", d_f); d_idx += 2
+                        ws3.set_column('B:C', 25); ws3.set_column('D:ZZ', 12)
 
-                    today_str = datetime.now().strftime("%Y-%m-%d")
-                    final_filename = f"Mobile_Logistics_Report_{today_str}.xlsx"
-                    st.balloons()
-                    st.download_button(label=f"📥 ดาวน์โหลด: {final_filename}", data=output.getvalue(), file_name=final_filename)
+                        # --- 4. จัดกล่อง (เพิ่ม No. และ TOTAL) ---
+                        ws4 = wb.add_worksheet("จัดกล่อง")
+                        cols_box = list(m_box.columns)
+                        ws4.write(0, 0, "No.", h_f)
+                        for idx, col in enumerate(cols_box): ws4.write(0, idx + 1, col, h_f)
+                        for i, r_val in m_box.reset_index(drop=True).iterrows():
+                            ws4.write(i + 1, 0, i + 1, d_f)
+                            for idx, val in enumerate(r_val):
+                                ws4.write(i + 1, idx + 1, val, s_f if cols_box[idx] == 'รวมจำนวน' else d_f)
+                        l_row = len(m_box) + 1
+                        ws4.write(l_row, 2, "TOTAL", s_f)
+                        for idx, col in enumerate(cols_box):
+                            if col not in ['TRIP', 'STORE NAME']: ws4.write(l_row, idx + 1, m_box[col].sum(), s_f)
+                        ws4.set_column('A:A', 5); ws4.set_column('B:C', 25); ws4.set_column('D:ZZ', 12)
 
+                        # --- 5. Order ---
+                        ws5 = wb.add_worksheet("Order")
+                        ws5.write(0, 0, "No.", h_f)
+                        for idx, col in enumerate(m_order.columns): ws5.write(0, idx + 1, col, h_f)
+                        for i, r_val in m_order.reset_index(drop=True).iterrows():
+                            ws5.write(i+1, 0, i+1, d_f)
+                            for idx, val in enumerate(r_val): ws5.write(i+1, idx+1, val, d_f)
+                        ws5.set_column('B:C', 25); ws5.set_column('D:ZZ', 12)
+
+                    st.download_button(label="📥 ดาวน์โหลดไฟล์", data=output.getvalue(), file_name=f"Report_{datetime.now().strftime('%Y-%m-%d')}.xlsx")
     except Exception as e:
         st.error(f"⚠️ Error: {e}")
