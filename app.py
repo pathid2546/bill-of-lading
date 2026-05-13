@@ -90,7 +90,9 @@ if file:
                         d_f = wb.add_format({'border':1, 'align':'center'})
                         s_f = wb.add_format({'bold':True, 'bg_color':'#E9E9E9', 'border':1, 'num_format':'#,##0'})
 
-                        # --- 1. ป้ายน้ำหนัก (A4 Portrait) ---
+                        fixed_meat_list = ["เนื้อสันคอ", "เนื้อออส", "หมูสันคอ", "หมูสามชั้น", "หมูสันนอก", "หมูคูโรบุตะ"]
+
+                        # --- 1. ป้ายน้ำหนัก (Portrait A4) ---
                         ws1 = wb.add_worksheet("ป้ายน้ำหนัก"); ws1.set_portrait(); ws1.set_margins(0.2, 0.2, 0.2, 0.2); ws1.set_paper(9)
                         f_bnn = wb.add_format({'bold':True, 'size':30, 'border':2, 'align':'center', 'valign':'vcenter', 'bg_color':header_bg})
                         f_trip_v = wb.add_format({'bold':True, 'size':32, 'border':2, 'align':'center', 'valign':'vcenter'})
@@ -98,7 +100,6 @@ if file:
                         f_prod_v = wb.add_format({'bold':True, 'size':22, 'border':1, 'valign':'vcenter', 'indent':1})
                         f_store_v = wb.add_format({'bold':True, 'size':24, 'border':1, 'align':'center', 'valign':'vcenter'})
                         ws1.set_column('A:A', 30); ws1.set_column('B:E', 12)
-                        fixed_meat_list = ["เนื้อสันคอ", "เนื้อออส", "หมูสันคอ", "หมูสามชั้น", "หมูสันนอก", "หมูคูโรบุตะ"]
                         row_idx = 0; breaks_w = []
                         for _, row_s in m_weight[['TRIP', 'STORE NAME']].iterrows():
                             ws1.merge_range(row_idx, 0, row_idx, 2, "BNN (สุกี้ตี๋น้อย)", f_bnn)
@@ -113,7 +114,7 @@ if file:
                             row_idx += 9; breaks_w.append(row_idx)
                         ws1.set_h_pagebreaks(breaks_w)
 
-                        # --- 2. ป้ายกล่อง (A4 Portrait) ---
+                        # --- 2. ป้ายกล่อง (Portrait A4) ---
                         ws2 = wb.add_worksheet("ป้ายกล่อง"); ws2.set_portrait(); ws2.set_margins(0.2, 0.2, 0.2, 0.2); ws2.set_paper(9)
                         f_label_big = wb.add_format({'bold':True, 'size':35, 'border':1, 'align':'center', 'valign':'vcenter'})
                         f_qty_big = wb.add_format({'bold':True, 'size':70, 'border':1, 'align':'center', 'valign':'vcenter'})
@@ -151,8 +152,8 @@ if file:
                         ws3.write(t_row, d_idx, "", s_f); ws3.write(t_row, d_idx+1, "", s_f)
                         ws3.set_column('A:A', 4); ws3.set_column('B:B', 8); ws3.set_column('C:C', 20); ws3.set_column('D:ZZ', 8)
 
-                        # --- 4. จัดกล่อง (Portrait A4) ---
-                        ws4 = wb.add_worksheet("จัดกล่อง"); ws4.set_portrait(); ws4.set_paper(9); ws4.fit_to_pages(1, 0)
+                        # --- 4. จัดกล่อง (✨ แนวนอน Landscape A4 ✨) ---
+                        ws4 = wb.add_worksheet("จัดกล่อง"); ws4.set_landscape(); ws4.set_paper(9); ws4.set_margins(0.2, 0.2, 0.2, 0.2); ws4.fit_to_pages(1, 0)
                         cols_box = list(m_box.columns); ws4.write(0, 0, "No.", h_f)
                         for idx, col in enumerate(cols_box): ws4.write(0, idx + 1, col, h_f)
                         for i, r_val in m_box.reset_index(drop=True).iterrows():
@@ -164,7 +165,7 @@ if file:
                         for idx, col in enumerate(cols_box):
                             if col not in ['TRIP', 'STORE NAME']:
                                 total_val = m_box[col].sum(); ws4.write(l_row, idx + 1, total_val if total_val != 0 else "-", s_f)
-                        ws4.set_column('B:C', 18); ws4.set_column('D:ZZ', 8)
+                        ws4.set_column('B:C', 22); ws4.set_column('D:ZZ', 10)
 
                         # --- 5. Order (Portrait A4) ---
                         ws5 = wb.add_worksheet("Order"); ws5.set_portrait(); ws5.set_paper(9); ws5.fit_to_pages(1, 0)
@@ -178,5 +179,5 @@ if file:
                         ws5.set_column('B:C', 18); ws5.set_column('D:ZZ', 8)
 
                     st.balloons()
-                    st.download_button(label="💖 ดาวน์โหลดไฟล์ (แนวตั้งสวยสับระดับรันเวย์) 💖", data=output.getvalue(), file_name=f"Queen_Report_Portrait_{datetime.now().strftime('%Y-%m-%d')}.xlsx")
+                    st.download_button(label="💖 ดาวน์โหลดไฟล์ (จัดกล่องแนวนอนสับๆ) 💖", data=output.getvalue(), file_name=f"Queen_Report_MixLayout_{datetime.now().strftime('%Y-%m-%d')}.xlsx")
     except Exception as e: st.error(f"อุ๊ย! ผิดพลาดค่ะ: {e}")
