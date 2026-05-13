@@ -91,7 +91,7 @@ if file:
                         s_f = wb.add_format({'bold':True, 'bg_color':'#E9E9E9', 'border':1, 'num_format':'#,##0'})
 
                         # --- 1. ป้ายน้ำหนัก (A4) ---
-                        ws1 = wb.add_worksheet("ป้ายน้ำหนัก"); ws1.set_landscape(); ws1.set_margins(0.2, 0.2, 0.2, 0.2)
+                        ws1 = wb.add_worksheet("ป้ายน้ำหนัก"); ws1.set_landscape(); ws1.set_margins(0.2, 0.2, 0.2, 0.2); ws1.set_paper(9) # A4
                         f_bnn = wb.add_format({'bold':True, 'size':30, 'border':2, 'align':'center', 'valign':'vcenter', 'bg_color':header_bg})
                         f_trip_v = wb.add_format({'bold':True, 'size':32, 'border':2, 'align':'center', 'valign':'vcenter'})
                         f_unit_v = wb.add_format({'bold':True, 'size':18, 'border':1, 'align':'center', 'valign':'vcenter'})
@@ -114,7 +114,7 @@ if file:
                         ws1.set_h_pagebreaks(breaks_w)
 
                         # --- 2. ป้ายกล่อง ---
-                        ws2 = wb.add_worksheet("ป้ายกล่อง"); ws2.set_landscape(); ws2.set_margins(0.2, 0.2, 0.2, 0.2)
+                        ws2 = wb.add_worksheet("ป้ายกล่อง"); ws2.set_landscape(); ws2.set_margins(0.2, 0.2, 0.2, 0.2); ws2.set_paper(9) # A4
                         f_label_big = wb.add_format({'bold':True, 'size':40, 'border':1, 'align':'center', 'valign':'vcenter'})
                         f_qty_big = wb.add_format({'bold':True, 'size':80, 'border':1, 'align':'center', 'valign':'vcenter'})
                         ws2.set_column('A:A', 50); ws2.set_column('B:B', 60); b_row = 0; breaks_b = []
@@ -127,8 +127,13 @@ if file:
                             b_row += 4; breaks_b.append(b_row)
                         ws2.set_h_pagebreaks(breaks_b)
 
-                        # --- 3. น้ำหนัก (Summary) **แก้เส้นขอบแล้วค่ะ** ---
+                        # --- 3. น้ำหนัก (Summary) **ตั้งค่า A4 Prints Fit-to-page** ---
                         ws3 = wb.add_worksheet("น้ำหนัก")
+                        ws3.set_landscape() 
+                        ws3.set_paper(9) # A4
+                        ws3.set_margins(0.2, 0.2, 0.2, 0.2)
+                        ws3.fit_to_pages(1, 0) # Fit to 1 page wide, any height
+                        
                         ws3.merge_range(0,0,1,0,"No.",h_f); ws3.merge_range(0,1,1,1,"TRIP",h_f); ws3.merge_range(0,2,1,2,"STORE NAME",h_f)
                         c_idx = 3
                         for p in fixed_meat_list:
@@ -142,7 +147,6 @@ if file:
                                 val = r_val.get(p, 0)
                                 if val == 0 and p == "หมูคูโรบุตะ": val = r_val.get("หมูสามชั้นคูโรบูตะ", 0)
                                 ws3.write(row_n, d_idx, val if val != 0 else "-", d_f); ws3.write(row_n, d_idx+1, "", d_f); d_idx += 2
-                            # ✨ เพิ่มเส้นขอบให้ 2 ช่องสุดท้าย (ตะกร้า/กล่อง)
                             ws3.write(row_n, d_idx, "", d_f); ws3.write(row_n, d_idx+1, "", d_f)
                         
                         t_row = len(m_weight) + 2; ws3.write(t_row, 2, "TOTAL", s_f)
@@ -151,12 +155,14 @@ if file:
                             val = m_weight[p].sum() if p in m_weight.columns else 0
                             if val == 0 and p == "หมูคูโรบุตะ": val = m_weight.get("หมูสามชั้นคูโรบูตะ", pd.Series([0])).sum()
                             ws3.write(t_row, d_idx, val if val != 0 else "-", s_f); ws3.write(t_row, d_idx+1, "", s_f); d_idx += 2
-                        # ✨ เพิ่มเส้นขอบ TOTAL ให้ 2 ช่องสุดท้าย
                         ws3.write(t_row, d_idx, "", s_f); ws3.write(t_row, d_idx+1, "", s_f)
-                        ws3.set_column('B:C', 25); ws3.set_column('D:ZZ', 12)
+                        
+                        # กำหนดความกว้างคอลัมน์ให้ดูดีบน A4
+                        ws3.set_column('A:A', 4); ws3.set_column('B:B', 8); ws3.set_column('C:C', 25); ws3.set_column('D:ZZ', 10)
 
                         # --- 4. จัดกล่อง ---
-                        ws4 = wb.add_worksheet("จัดกล่อง"); cols_box = list(m_box.columns); ws4.write(0, 0, "No.", h_f)
+                        ws4 = wb.add_worksheet("จัดกล่อง"); ws4.set_landscape(); ws4.set_paper(9); ws4.fit_to_pages(1, 0)
+                        cols_box = list(m_box.columns); ws4.write(0, 0, "No.", h_f)
                         for idx, col in enumerate(cols_box): ws4.write(0, idx + 1, col, h_f)
                         for i, r_val in m_box.reset_index(drop=True).iterrows():
                             ws4.write(i+1, 0, i+1, d_f)
@@ -167,18 +173,19 @@ if file:
                         for idx, col in enumerate(cols_box):
                             if col not in ['TRIP', 'STORE NAME']:
                                 total_val = m_box[col].sum(); ws4.write(l_row, idx + 1, total_val if total_val != 0 else "-", s_f)
-                        ws4.set_column('B:C', 25); ws4.set_column('D:ZZ', 12)
+                        ws4.set_column('B:C', 22); ws4.set_column('D:ZZ', 10)
 
                         # --- 5. Order ---
-                        ws5 = wb.add_worksheet("Order"); order_cols = list(m_order.columns); ws5.write(0, 0, "No.", h_f)
+                        ws5 = wb.add_worksheet("Order"); ws5.set_landscape(); ws5.set_paper(9); ws5.fit_to_pages(1, 0)
+                        order_cols = list(m_order.columns); ws5.write(0, 0, "No.", h_f)
                         for idx, col in enumerate(order_cols): ws5.write(0, idx + 1, col, h_f)
                         for i, r_val in m_order.reset_index(drop=True).iterrows():
                             ws5.write(i+1, 0, i+1, d_f)
                             for idx, val in enumerate(r_val):
                                 display_val = val if val != 0 else "-" if order_cols[idx] not in ['TRIP', 'STORE NAME'] else val
                                 ws5.write(i+1, idx+1, display_val, d_f)
-                        ws5.set_column('B:C', 25); ws5.set_column('D:ZZ', 12)
+                        ws5.set_column('B:C', 22); ws5.set_column('D:ZZ', 10)
 
                     st.balloons()
-                    st.download_button(label="💖 ดาวน์โหลดไฟล์ (ขอบตารางเป๊ะแล้วค่ะ!) 💖", data=output.getvalue(), file_name=f"Queen_Report_Fixed_Border_{datetime.now().strftime('%Y-%m-%d')}.xlsx")
+                    st.download_button(label="💖 ดาวน์โหลดไฟล์ (พร้อมปริ้นท์สับๆ A4) 💖", data=output.getvalue(), file_name=f"Queen_Report_PrintReady_{datetime.now().strftime('%Y-%m-%d')}.xlsx")
     except Exception as e: st.error(f"อุ๊ย! ผิดพลาดค่ะ: {e}")
