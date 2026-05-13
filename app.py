@@ -22,7 +22,7 @@ def sassy_css():
     """, unsafe_allow_html=True)
 
 sassy_css()
-st.markdown("<h1>Route BNN by นร้อง เดียร์ 💅</h1>", unsafe_allow_html=True)
+st.markdown("<h1>Route BNN by น้องเดียร์ 💅</h1>", unsafe_allow_html=True)
 
 if 'order_box' not in st.session_state: st.session_state.order_box = []
 if 'order_total' not in st.session_state: st.session_state.order_total = []
