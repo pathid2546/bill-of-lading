@@ -86,12 +86,16 @@ if file:
                     output = io.BytesIO()
                     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                         wb = writer.book; header_bg = '#F2F2F2'
+                        # ฟอร์แมตหัวตาราง
                         h_f = wb.add_format({'bold':True, 'align':'center', 'valign':'vcenter', 'bg_color':header_bg, 'border':1, 'text_wrap':True})
-                        d_f = wb.add_format({'border':1, 'align':'center'})
-                        s_f = wb.add_format({'bold':True, 'bg_color':'#E9E9E9', 'border':1, 'num_format':'#,##0'})
+                        # ฟอร์แมตข้อมูลปกติ (เพิ่ม valign: vcenter)
+                        d_f = wb.add_format({'border':1, 'align':'center', 'valign':'vcenter'})
+                        # ฟอร์แมตแถวสรุป
+                        s_f = wb.add_format({'bold':True, 'bg_color':'#E9E9E9', 'border':1, 'num_format':'#,##0', 'valign':'vcenter', 'align':'center'})
+                        
                         fixed_meat_list = ["เนื้อสันคอ", "เนื้อออส", "หมูสันคอ", "หมูสามชั้น", "หมูสันนอก", "หมูคูโรบุตะ"]
 
-                        # --- 1. ป้ายน้ำหนัก (✨ แนวนอน Landscape A4 ✨) ---
+                        # --- 1. ป้ายน้ำหนัก (Landscape A4) ---
                         ws1 = wb.add_worksheet("ป้ายน้ำหนัก"); ws1.set_landscape(); ws1.set_margins(0.2, 0.2, 0.2, 0.2); ws1.set_paper(9)
                         f_bnn = wb.add_format({'bold':True, 'size':30, 'border':2, 'align':'center', 'valign':'vcenter', 'bg_color':header_bg})
                         f_trip_v = wb.add_format({'bold':True, 'size':32, 'border':2, 'align':'center', 'valign':'vcenter'})
@@ -113,7 +117,7 @@ if file:
                             row_idx += 9; breaks_w.append(row_idx)
                         ws1.set_h_pagebreaks(breaks_w)
 
-                        # --- 2. ป้ายกล่อง (✨ แนวนอน Landscape A4 ✨) ---
+                        # --- 2. ป้ายกล่อง (Landscape A4) ---
                         ws2 = wb.add_worksheet("ป้ายกล่อง"); ws2.set_landscape(); ws2.set_margins(0.2, 0.2, 0.2, 0.2); ws2.set_paper(9)
                         f_label_big = wb.add_format({'bold':True, 'size':40, 'border':1, 'align':'center', 'valign':'vcenter'})
                         f_qty_big = wb.add_format({'bold':True, 'size':80, 'border':1, 'align':'center', 'valign':'vcenter'})
@@ -127,22 +131,32 @@ if file:
                             b_row += 4; breaks_b.append(b_row)
                         ws2.set_h_pagebreaks(breaks_b)
 
-                        # --- 3. น้ำหนัก (Portrait A4) ---
+                        # --- 3. น้ำหนัก (Summary) ✨ Portrait A4 + Row Height 50 ✨ ---
                         ws3 = wb.add_worksheet("น้ำหนัก"); ws3.set_portrait(); ws3.set_paper(9); ws3.set_margins(0.2, 0.2, 0.2, 0.2); ws3.fit_to_pages(1, 0)
+                        
+                        # หัวตารางความสูงปกติ
                         ws3.merge_range(0,0,1,0,"No.",h_f); ws3.merge_range(0,1,1,1,"TRIP",h_f); ws3.merge_range(0,2,1,2,"STORE NAME",h_f)
                         c_idx = 3
                         for p in fixed_meat_list:
                             ws3.write(0, c_idx, "จำนวนสั่ง", h_f); ws3.write(1, c_idx, p, h_f); ws3.merge_range(0, c_idx+1, 1, c_idx+1, "จ่ายจริง", h_f); c_idx += 2
                         ws3.merge_range(0, c_idx, 1, c_idx, "ตะกร้า", h_f); ws3.merge_range(0, c_idx+1, 1, c_idx+1, "กล่อง", h_f)
+                        
+                        # ข้อมูลความสูงแถว 50
                         for i, r_val in m_weight.reset_index(drop=True).iterrows():
-                            row_n = i+2; ws3.write(row_n,0,i+1,d_f); ws3.write(row_n,1,r_val['TRIP'],d_f); ws3.write(row_n,2,r_val['STORE NAME'],d_f)
+                            row_n = i+2
+                            ws3.set_row(row_n, 37.5) # 37.5 points = 50 pixels
+                            ws3.write(row_n, 0, i+1, d_f); ws3.write(row_n, 1, r_val['TRIP'], d_f); ws3.write(row_n, 2, r_val['STORE NAME'], d_f)
                             d_idx = 3
                             for p in fixed_meat_list:
                                 val = r_val.get(p, 0)
                                 if val == 0 and p == "หมูคูโรบุตะ": val = r_val.get("หมูสามชั้นคูโรบูตะ", 0)
                                 ws3.write(row_n, d_idx, val if val != 0 else "-", d_f); ws3.write(row_n, d_idx+1, "", d_f); d_idx += 2
                             ws3.write(row_n, d_idx, "", d_f); ws3.write(row_n, d_idx+1, "", d_f)
-                        t_row = len(m_weight) + 2; ws3.write(t_row, 2, "TOTAL", s_f)
+                        
+                        # แถวสรุป
+                        t_row = len(m_weight) + 2
+                        ws3.set_row(t_row, 37.5)
+                        ws3.write(t_row, 2, "TOTAL", s_f)
                         d_idx = 3
                         for p in fixed_meat_list:
                             val = m_weight[p].sum() if p in m_weight.columns else 0
@@ -178,5 +192,5 @@ if file:
                         ws5.set_column('B:C', 18); ws5.set_column('D:ZZ', 8)
 
                     st.balloons()
-                    st.download_button(label="💖 ดาวน์โหลดไฟล์ (ป้ายแนวนอนคู่สับๆ) 💖", data=output.getvalue(), file_name=f"Queen_Report_FullLandscapeLabels_{datetime.now().strftime('%Y-%m-%d')}.xlsx")
+                    st.download_button(label="💖 ดาวน์โหลดไฟล์ (เวอร์ชันความสูง 50px สับๆ) 💖", data=output.getvalue(), file_name=f"Queen_Report_Final_{datetime.now().strftime('%Y-%m-%d')}.xlsx")
     except Exception as e: st.error(f"อุ๊ย! ผิดพลาดค่ะ: {e}")
