@@ -86,11 +86,8 @@ if file:
                     output = io.BytesIO()
                     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                         wb = writer.book; header_bg = '#F2F2F2'
-                        # ฟอร์แมตหัวตาราง
                         h_f = wb.add_format({'bold':True, 'align':'center', 'valign':'vcenter', 'bg_color':header_bg, 'border':1, 'text_wrap':True})
-                        # ฟอร์แมตข้อมูลปกติ (เพิ่ม valign: vcenter)
                         d_f = wb.add_format({'border':1, 'align':'center', 'valign':'vcenter'})
-                        # ฟอร์แมตแถวสรุป
                         s_f = wb.add_format({'bold':True, 'bg_color':'#E9E9E9', 'border':1, 'num_format':'#,##0', 'valign':'vcenter', 'align':'center'})
                         
                         fixed_meat_list = ["เนื้อสันคอ", "เนื้อออส", "หมูสันคอ", "หมูสามชั้น", "หมูสันนอก", "หมูคูโรบุตะ"]
@@ -131,20 +128,20 @@ if file:
                             b_row += 4; breaks_b.append(b_row)
                         ws2.set_h_pagebreaks(breaks_b)
 
-                        # --- 3. น้ำหนัก (Summary) ✨ Portrait A4 + Row Height 50 ✨ ---
+                        # --- 3. น้ำหนัก (Summary) ✨ Freeze + Repeat Header ✨ ---
                         ws3 = wb.add_worksheet("น้ำหนัก"); ws3.set_portrait(); ws3.set_paper(9); ws3.set_margins(0.2, 0.2, 0.2, 0.2); ws3.fit_to_pages(1, 0)
+                        ws3.repeat_rows(0, 1) # ทำซ้ำ Header แถว 1-2 เวลาขึ้นหน้าใหม่
+                        ws3.freeze_panes(2, 3) # ตรึงแถว 1-2 และคอลัมน์ A-C ไว้
                         
-                        # หัวตารางความสูงปกติ
                         ws3.merge_range(0,0,1,0,"No.",h_f); ws3.merge_range(0,1,1,1,"TRIP",h_f); ws3.merge_range(0,2,1,2,"STORE NAME",h_f)
                         c_idx = 3
                         for p in fixed_meat_list:
                             ws3.write(0, c_idx, "จำนวนสั่ง", h_f); ws3.write(1, c_idx, p, h_f); ws3.merge_range(0, c_idx+1, 1, c_idx+1, "จ่ายจริง", h_f); c_idx += 2
                         ws3.merge_range(0, c_idx, 1, c_idx, "ตะกร้า", h_f); ws3.merge_range(0, c_idx+1, 1, c_idx+1, "กล่อง", h_f)
                         
-                        # ข้อมูลความสูงแถว 50
                         for i, r_val in m_weight.reset_index(drop=True).iterrows():
                             row_n = i+2
-                            ws3.set_row(row_n, 37.5) # 37.5 points = 50 pixels
+                            ws3.set_row(row_n, 37.5) # 50px
                             ws3.write(row_n, 0, i+1, d_f); ws3.write(row_n, 1, r_val['TRIP'], d_f); ws3.write(row_n, 2, r_val['STORE NAME'], d_f)
                             d_idx = 3
                             for p in fixed_meat_list:
@@ -153,9 +150,7 @@ if file:
                                 ws3.write(row_n, d_idx, val if val != 0 else "-", d_f); ws3.write(row_n, d_idx+1, "", d_f); d_idx += 2
                             ws3.write(row_n, d_idx, "", d_f); ws3.write(row_n, d_idx+1, "", d_f)
                         
-                        # แถวสรุป
                         t_row = len(m_weight) + 2
-                        ws3.set_row(t_row, 37.5)
                         ws3.write(t_row, 2, "TOTAL", s_f)
                         d_idx = 3
                         for p in fixed_meat_list:
@@ -165,8 +160,11 @@ if file:
                         ws3.write(t_row, d_idx, "", s_f); ws3.write(t_row, d_idx+1, "", s_f)
                         ws3.set_column('A:A', 4); ws3.set_column('B:B', 8); ws3.set_column('C:C', 20); ws3.set_column('D:ZZ', 8)
 
-                        # --- 4. จัดกล่อง (Landscape A4) ---
+                        # --- 4. จัดกล่อง (Landscape A4) ✨ Freeze + Repeat Header ✨ ---
                         ws4 = wb.add_worksheet("จัดกล่อง"); ws4.set_landscape(); ws4.set_paper(9); ws4.set_margins(0.2, 0.2, 0.2, 0.2); ws4.fit_to_pages(1, 0)
+                        ws4.repeat_rows(0, 0) # ทำซ้ำ Header แถวที่ 1
+                        ws4.freeze_panes(1, 3) # ตรึงแถว 1 และคอลัมน์ A-C
+                        
                         cols_box = list(m_box.columns); ws4.write(0, 0, "No.", h_f)
                         for idx, col in enumerate(cols_box): ws4.write(0, idx + 1, col, h_f)
                         for i, r_val in m_box.reset_index(drop=True).iterrows():
@@ -180,8 +178,11 @@ if file:
                                 total_val = m_box[col].sum(); ws4.write(l_row, idx + 1, total_val if total_val != 0 else "-", s_f)
                         ws4.set_column('B:C', 22); ws4.set_column('D:ZZ', 10)
 
-                        # --- 5. Order (Portrait A4) ---
+                        # --- 5. Order ✨ Freeze + Repeat Header ✨ ---
                         ws5 = wb.add_worksheet("Order"); ws5.set_portrait(); ws5.set_paper(9); ws5.fit_to_pages(1, 0)
+                        ws5.repeat_rows(0, 0)
+                        ws5.freeze_panes(1, 3)
+                        
                         order_cols = list(m_order.columns); ws5.write(0, 0, "No.", h_f)
                         for idx, col in enumerate(order_cols): ws5.write(0, idx + 1, col, h_f)
                         for i, r_val in m_order.reset_index(drop=True).iterrows():
@@ -192,5 +193,5 @@ if file:
                         ws5.set_column('B:C', 18); ws5.set_column('D:ZZ', 8)
 
                     st.balloons()
-                    st.download_button(label="💖 ดาวน์โหลดไฟล์ (เวอร์ชันความสูง 50px สับๆ) 💖", data=output.getvalue(), file_name=f"Queen_Report_Final_{datetime.now().strftime('%Y-%m-%d')}.xlsx")
+                    st.download_button(label="💖 ดาวน์โหลดไฟล์ (Freeze & Repeat Header) 💖", data=output.getvalue(), file_name=f"Queen_Report_Professional_{datetime.now().strftime('%Y-%m-%d')}.xlsx")
     except Exception as e: st.error(f"อุ๊ย! ผิดพลาดค่ะ: {e}")
