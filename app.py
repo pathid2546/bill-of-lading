@@ -81,24 +81,12 @@ def sassy_css():
             background-color: #000000 !important;
             border-right: 2px solid #FF007A;
         }
-
-        [data-testid="stFileUploadDropzone"] {
-            border: 2px dashed #FF007A !important;
-            background: rgba(255, 0, 122, 0.05) !important;
-            border-radius: 30px !important;
-        }
         </style>
     """, unsafe_allow_html=True)
 
 sassy_css()
 
 st.markdown("<h1>Queen Logistics Center 💅</h1>", unsafe_allow_html=True)
-
-with st.sidebar:
-    st.markdown("### ✨ มุมสวยของพี่")
-    theme_color = st.color_picker("จิ้มสีที่ใช่", "#FF007A")
-    st.markdown("---")
-    st.info("💡 **คำแนะนำจากตัวแม่:** อย่าลืมตรวจสอบลำดับสินค้าในแท็บที่ 2 นะคะ เพื่อความเป๊ะปัง!")
 
 if 'order_box' not in st.session_state: st.session_state.order_box = []
 if 'order_total' not in st.session_state: st.session_state.order_total = []
@@ -158,7 +146,6 @@ if file:
 
             with tab_process:
                 if st.button("🌟 เสกไฟล์เดี๋ยวนี้!"):
-                    # เตรียม DataFrames
                     m_weight = full_df[full_df['Product'].str.contains('|'.join(meat_kw), na=False)].pivot_table(index=['TRIP', 'STORE NAME'], columns='Product', values='Qty', aggfunc='sum').fillna(0).reset_index()
                     m_box = full_df[~full_df['Product'].str.contains('|'.join(meat_kw), na=False)].pivot_table(index=['TRIP', 'STORE NAME'], columns='Product', values='Qty', aggfunc='sum').fillna(0).reset_index()
                     m_order = full_df.pivot_table(index=['TRIP', 'STORE NAME'], columns='Product', values='Qty', aggfunc='sum').fillna(0).reset_index()
@@ -175,7 +162,7 @@ if file:
                         d_f = wb.add_format({'border':1, 'align':'center'})
                         s_f = wb.add_format({'bold':True, 'bg_color':'#E9E9E9', 'border':1, 'num_format':'#,##0'})
 
-                        # --- 1. ป้ายน้ำหนัก (Size Fix A4) ---
+                        # --- 1. ป้ายน้ำหนัก (Size A4) ---
                         ws1 = wb.add_worksheet("ป้ายน้ำหนัก")
                         ws1.set_landscape(); ws1.set_margins(0.2, 0.2, 0.2, 0.2)
                         f_bnn = wb.add_format({'bold':True, 'size':30, 'border':2, 'align':'center', 'valign':'vcenter', 'bg_color':header_bg})
@@ -211,7 +198,7 @@ if file:
                         for _, row_b in m_box.iterrows():
                             ws2.merge_range(b_row, 0, b_row, 1, "BNN (สุกี้ตี๋น้อย)", wb.add_format({'bold':True, 'size':60, 'border':2, 'align':'center', 'valign':'vcenter', 'bg_color':header_bg}))
                             ws2.write(b_row+1, 0, "STORE NAME", f_label_big); ws2.write(b_row+1, 1, row_b['STORE NAME'], wb.add_format({'bold':True, 'size':35, 'border':1, 'align':'center', 'valign':'vcenter', 'text_wrap':True}))
-                            ws2.write(b_row+2, 0, "จำนวนกล่อง", f_label_big); ws2.write(b_row+2, 1, row_b['รวมจำนวน'], f_qty_big)
+                            ws2.write(b_row+2, 0, "จำนวนกล่อง", f_label_big); ws2.write(b_row+2, 1, row_b['รวมจำนวน'] if row_b['รวมจำนวน'] != 0 else "-", f_qty_big)
                             ws2.write(b_row+3, 0, "TRIP NO.", f_label_big); ws2.write(b_row+3, 1, row_b['TRIP'], wb.add_format({'bold':True, 'size':70, 'border':1, 'align':'center', 'valign':'vcenter'}))
                             ws2.set_row(b_row, 120); ws2.set_row(b_row+1, 100); ws2.set_row(b_row+2, 130); ws2.set_row(b_row+3, 120)
                             b_row += 4; breaks_b.append(b_row)
@@ -230,14 +217,14 @@ if file:
                             for p in fixed_meat_list:
                                 val = r_val.get(p, 0)
                                 if val == 0 and p == "หมูคูโรบุตะ": val = r_val.get("หมูสามชั้นคูโรบูตะ", 0)
-                                ws3.write(row_n, d_idx, val, d_f); ws3.write(row_n, d_idx+1, "", d_f); d_idx += 2
-                        t_row = len(m_weight) + 2
-                        ws3.write(t_row, 2, "TOTAL", s_f)
+                                ws3.write(row_n, d_idx, val if val != 0 else "-", d_f)
+                                ws3.write(row_n, d_idx+1, "", d_f); d_idx += 2
+                        t_row = len(m_weight) + 2; ws3.write(t_row, 2, "TOTAL", s_f)
                         d_idx = 3
                         for p in fixed_meat_list:
                             val = m_weight[p].sum() if p in m_weight.columns else 0
                             if val == 0 and p == "หมูคูโรบุตะ": val = m_weight.get("หมูสามชั้นคูโรบูตะ", pd.Series([0])).sum()
-                            ws3.write(t_row, d_idx, val, s_f); ws3.write(t_row, d_idx+1, "", s_f); d_idx += 2
+                            ws3.write(t_row, d_idx, val if val != 0 else "-", s_f); ws3.write(t_row, d_idx+1, "", s_f); d_idx += 2
                         ws3.set_column('B:C', 25); ws3.set_column('D:ZZ', 12)
 
                         # --- 4. จัดกล่อง ---
@@ -247,23 +234,29 @@ if file:
                         for idx, col in enumerate(cols_box): ws4.write(0, idx + 1, col, h_f)
                         for i, r_val in m_box.reset_index(drop=True).iterrows():
                             ws4.write(i+1, 0, i+1, d_f)
-                            for idx, val in enumerate(r_val): ws4.write(i+1, idx+1, val, s_f if cols_box[idx] == 'รวมจำนวน' else d_f)
+                            for idx, val in enumerate(r_val):
+                                display_val = val if val != 0 else "-" if cols_box[idx] not in ['TRIP', 'STORE NAME'] else val
+                                ws4.write(i+1, idx+1, display_val, s_f if cols_box[idx] == 'รวมจำนวน' else d_f)
                         l_row = len(m_box) + 1; ws4.write(l_row, 2, "TOTAL", s_f)
                         for idx, col in enumerate(cols_box):
-                            if col not in ['TRIP', 'STORE NAME']: ws4.write(l_row, idx + 1, m_box[col].sum(), s_f)
+                            if col not in ['TRIP', 'STORE NAME']:
+                                total_val = m_box[col].sum()
+                                ws4.write(l_row, idx + 1, total_val if total_val != 0 else "-", s_f)
                         ws4.set_column('B:C', 25); ws4.set_column('D:ZZ', 12)
 
-                        # --- 5. Order (เอากลับมาแล้วค่ะ!) ---
+                        # --- 5. Order ---
                         ws5 = wb.add_worksheet("Order")
                         order_cols = list(m_order.columns)
                         ws5.write(0, 0, "No.", h_f)
                         for idx, col in enumerate(order_cols): ws5.write(0, idx + 1, col, h_f)
                         for i, r_val in m_order.reset_index(drop=True).iterrows():
                             ws5.write(i+1, 0, i+1, d_f)
-                            for idx, val in enumerate(r_val): ws5.write(i+1, idx+1, val, d_f)
+                            for idx, val in enumerate(r_val):
+                                display_val = val if val != 0 else "-" if order_cols[idx] not in ['TRIP', 'STORE NAME'] else val
+                                ws5.write(i+1, idx+1, display_val, d_f)
                         ws5.set_column('B:C', 25); ws5.set_column('D:ZZ', 12)
 
                     st.balloons()
-                    st.download_button(label="💖 ดาวน์โหลดไฟล์ความปัง (Order กลับมาแล้ว!) 💖", data=output.getvalue(), file_name=f"Queen_Report_Fixed_{datetime.now().strftime('%Y-%m-%d')}.xlsx")
+                    st.download_button(label="💖 ดาวน์โหลดไฟล์ (สะอ้านตามากค่ะ!) 💖", data=output.getvalue(), file_name=f"Queen_Report_Final_{datetime.now().strftime('%Y-%m-%d')}.xlsx")
     except Exception as e:
         st.error(f"อุ๊ย! มีข้อผิดพลาดนิดหน่อยค่ะคุณพี่: {e}")
