@@ -11,82 +11,18 @@ def sassy_css():
     st.markdown("""
         <style>
         @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&family=Mitr:wght@300;500&display=swap');
-        
-        .main {
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-            color: #ffffff !important;
-            font-family: 'Kanit', sans-serif;
-        }
-
-        h1 {
-            background: linear-gradient(90deg, #FF007A, #FF85A1, #FFFFFF, #FF85A1, #FF007A);
-            background-size: 200% auto;
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            animation: shine 3s linear infinite;
-            text-align: center;
-            font-size: 4rem !important;
-            font-weight: 800 !important;
-            padding: 2rem 0;
-            text-transform: uppercase;
-            letter-spacing: 5px;
-        }
-
-        @keyframes shine {
-            to { background-position: 200% center; }
-        }
-
-        div.stButton > button {
-            background: linear-gradient(135deg, #FF007A 0%, #9000FF 100%) !important;
-            color: white !important;
-            border: none !important;
-            border-radius: 50px !important;
-            font-weight: bold !important;
-            font-size: 1.2rem !important;
-            height: 70px !important;
-            width: 100% !important;
-            transition: 0.4s all ease-in-out !important;
-            box-shadow: 0 10px 20px rgba(255, 0, 122, 0.4) !important;
-            text-transform: uppercase;
-        }
-
-        div.stButton > button:hover {
-            transform: scale(1.05) translateY(-5px) !important;
-            box-shadow: 0 15px 30px rgba(144, 0, 255, 0.6) !important;
-            letter-spacing: 3px;
-        }
-
-        .stTabs [data-baseweb="tab-list"] {
-            gap: 10px;
-            background-color: rgba(255, 255, 255, 0.05);
-            padding: 10px;
-            border-radius: 20px;
-        }
-
-        .stTabs [data-baseweb="tab"] {
-            height: 50px;
-            white-space: pre-wrap;
-            background-color: transparent;
-            border-radius: 15px;
-            color: #FF85A1 !important;
-            font-weight: 600;
-        }
-
-        .stTabs [aria-selected="true"] {
-            background: linear-gradient(90deg, #FF007A, #9000FF) !important;
-            color: white !important;
-        }
-
-        [data-testid="stSidebar"] {
-            background-color: #000000 !important;
-            border-right: 2px solid #FF007A;
-        }
+        .main { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); color: #ffffff !important; font-family: 'Kanit', sans-serif; }
+        h1 { background: linear-gradient(90deg, #FF007A, #FF85A1, #FFFFFF, #FF85A1, #FF007A); background-size: 200% auto; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: shine 3s linear infinite; text-align: center; font-size: 4rem !important; font-weight: 800 !important; padding: 2rem 0; text-transform: uppercase; letter-spacing: 5px; }
+        @keyframes shine { to { background-position: 200% center; } }
+        div.stButton > button { background: linear-gradient(135deg, #FF007A 0%, #9000FF 100%) !important; color: white !important; border: none !important; border-radius: 50px !important; font-weight: bold !important; font-size: 1.2rem !important; height: 70px !important; width: 100% !important; transition: 0.4s all ease-in-out !important; box-shadow: 0 10px 20px rgba(255, 0, 122, 0.4) !important; text-transform: uppercase; }
+        .stTabs [data-baseweb="tab-list"] { gap: 10px; background-color: rgba(255, 255, 255, 0.05); padding: 10px; border-radius: 20px; }
+        .stTabs [data-baseweb="tab"] { height: 50px; color: #FF85A1 !important; font-weight: 600; }
+        .stTabs [aria-selected="true"] { background: linear-gradient(90deg, #FF007A, #9000FF) !important; color: white !important; }
         </style>
     """, unsafe_allow_html=True)
 
 sassy_css()
-
-st.markdown("<h1>Route ( รูตี้ ) by นร้อง เดียร์เริ่ดๆ 💅</h1>", unsafe_allow_html=True)
+st.markdown("<h1>Queen Logistics Center 💅</h1>", unsafe_allow_html=True)
 
 if 'order_box' not in st.session_state: st.session_state.order_box = []
 if 'order_total' not in st.session_state: st.session_state.order_total = []
@@ -107,11 +43,9 @@ if file:
         if header_idx is not None:
             store_codes_row = raw_df.iloc[header_idx + 1]
             df_clean = raw_df.iloc[header_idx:].copy()
-            df_clean.columns = df_clean.iloc[0]
-            df_clean = df_clean.iloc[1:].reset_index(drop=True)
+            df_clean.columns = df_clean.iloc[0]; df_clean = df_clean.iloc[1:].reset_index(drop=True)
             store_columns = [c for c in df_clean.columns[4:] if "Unnamed" not in str(c)]
-            all_rows = []
-            original_order = [] 
+            all_rows = []; original_order = [] 
 
             for _, row in df_clean.iterrows():
                 product = str(row.get('Description', '')).strip()
@@ -131,18 +65,13 @@ if file:
             
             if not st.session_state.order_box: 
                 box_items = [p for p in original_order if not any(kw in p for kw in meat_kw)]
-                sorted_box = [p for p in fixed_top if p in box_items] + [p for p in box_items if p not in fixed_top]
-                st.session_state.order_box = sorted_box
+                st.session_state.order_box = [p for p in fixed_top if p in box_items] + [p for p in box_items if p not in fixed_top]
             if not st.session_state.order_total: st.session_state.order_total = original_order
 
             with tab_setting:
                 c1, c2 = st.columns(2)
-                with c1: 
-                    st.markdown("✨ **ป้ายกล่อง**")
-                    st.session_state.order_box = sort_items(st.session_state.order_box, key="box")
-                with c2: 
-                    st.markdown("📋 **รายงานสรุป**")
-                    st.session_state.order_total = sort_items(st.session_state.order_total, key="total")
+                with c1: st.markdown("✨ **ป้ายกล่อง**"); st.session_state.order_box = sort_items(st.session_state.order_box, key="box")
+                with c2: st.markdown("📋 **รายงานสรุป**"); st.session_state.order_total = sort_items(st.session_state.order_total, key="total")
 
             with tab_process:
                 if st.button("🌟 เสกไฟล์เดี๋ยวนี้!"):
@@ -156,15 +85,13 @@ if file:
 
                     output = io.BytesIO()
                     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                        wb = writer.book
-                        header_bg = '#F2F2F2'
+                        wb = writer.book; header_bg = '#F2F2F2'
                         h_f = wb.add_format({'bold':True, 'align':'center', 'valign':'vcenter', 'bg_color':header_bg, 'border':1, 'text_wrap':True})
                         d_f = wb.add_format({'border':1, 'align':'center'})
                         s_f = wb.add_format({'bold':True, 'bg_color':'#E9E9E9', 'border':1, 'num_format':'#,##0'})
 
-                        # --- 1. ป้ายน้ำหนัก (Size A4) ---
-                        ws1 = wb.add_worksheet("ป้ายน้ำหนัก")
-                        ws1.set_landscape(); ws1.set_margins(0.2, 0.2, 0.2, 0.2)
+                        # --- 1. ป้ายน้ำหนัก (A4) ---
+                        ws1 = wb.add_worksheet("ป้ายน้ำหนัก"); ws1.set_landscape(); ws1.set_margins(0.2, 0.2, 0.2, 0.2)
                         f_bnn = wb.add_format({'bold':True, 'size':30, 'border':2, 'align':'center', 'valign':'vcenter', 'bg_color':header_bg})
                         f_trip_v = wb.add_format({'bold':True, 'size':32, 'border':2, 'align':'center', 'valign':'vcenter'})
                         f_unit_v = wb.add_format({'bold':True, 'size':18, 'border':1, 'align':'center', 'valign':'vcenter'})
@@ -176,25 +103,21 @@ if file:
                         for _, row_s in m_weight[['TRIP', 'STORE NAME']].iterrows():
                             ws1.merge_range(row_idx, 0, row_idx, 2, "BNN (สุกี้ตี๋น้อย)", f_bnn)
                             ws1.merge_range(row_idx, 3, row_idx, 4, row_s['TRIP'], f_trip_v)
-                            ws1.set_row(row_idx, 65)
-                            ws1.write(row_idx + 1, 0, "STORE:", f_unit_v)
+                            ws1.set_row(row_idx, 65); ws1.write(row_idx + 1, 0, "STORE:", f_unit_v)
                             ws1.merge_range(row_idx + 1, 1, row_idx + 1, 4, row_s['STORE NAME'], f_store_v)
                             ws1.set_row(row_idx + 1, 55)
                             for i, item in enumerate(fixed_meat_list):
                                 r = row_idx + 2 + i
                                 ws1.write(r, 0, item, f_prod_v); ws1.write(r, 1, "", f_unit_v); ws1.write(r, 2, "KG.", f_unit_v); ws1.write(r, 3, "", f_unit_v)
-                                ws1.write(r, 4, "กล่อง" if item in ["เนื้อออส", "หมูคูโรบุตะ"] else "ตะกร้า", f_unit_v)
-                                ws1.set_row(r, 62)
+                                ws1.write(r, 4, "กล่อง" if item in ["เนื้อออส", "หมูคูโรบุตะ"] else "ตะกร้า", f_unit_v); ws1.set_row(r, 62)
                             row_idx += 9; breaks_w.append(row_idx)
                         ws1.set_h_pagebreaks(breaks_w)
 
                         # --- 2. ป้ายกล่อง ---
-                        ws2 = wb.add_worksheet("ป้ายกล่อง")
-                        ws2.set_landscape(); ws2.set_margins(0.2, 0.2, 0.2, 0.2)
+                        ws2 = wb.add_worksheet("ป้ายกล่อง"); ws2.set_landscape(); ws2.set_margins(0.2, 0.2, 0.2, 0.2)
                         f_label_big = wb.add_format({'bold':True, 'size':40, 'border':1, 'align':'center', 'valign':'vcenter'})
                         f_qty_big = wb.add_format({'bold':True, 'size':80, 'border':1, 'align':'center', 'valign':'vcenter'})
-                        ws2.set_column('A:A', 50); ws2.set_column('B:B', 60)
-                        b_row = 0; breaks_b = []
+                        ws2.set_column('A:A', 50); ws2.set_column('B:B', 60); b_row = 0; breaks_b = []
                         for _, row_b in m_box.iterrows():
                             ws2.merge_range(b_row, 0, b_row, 1, "BNN (สุกี้ตี๋น้อย)", wb.add_format({'bold':True, 'size':60, 'border':2, 'align':'center', 'valign':'vcenter', 'bg_color':header_bg}))
                             ws2.write(b_row+1, 0, "STORE NAME", f_label_big); ws2.write(b_row+1, 1, row_b['STORE NAME'], wb.add_format({'bold':True, 'size':35, 'border':1, 'align':'center', 'valign':'vcenter', 'text_wrap':True}))
@@ -204,33 +127,36 @@ if file:
                             b_row += 4; breaks_b.append(b_row)
                         ws2.set_h_pagebreaks(breaks_b)
 
-                        # --- 3. น้ำหนัก (Summary + Total) ---
+                        # --- 3. น้ำหนัก (Summary) **แก้เส้นขอบแล้วค่ะ** ---
                         ws3 = wb.add_worksheet("น้ำหนัก")
                         ws3.merge_range(0,0,1,0,"No.",h_f); ws3.merge_range(0,1,1,1,"TRIP",h_f); ws3.merge_range(0,2,1,2,"STORE NAME",h_f)
                         c_idx = 3
                         for p in fixed_meat_list:
                             ws3.write(0, c_idx, "จำนวนสั่ง", h_f); ws3.write(1, c_idx, p, h_f); ws3.merge_range(0, c_idx+1, 1, c_idx+1, "จ่ายจริง", h_f); c_idx += 2
                         ws3.merge_range(0, c_idx, 1, c_idx, "ตะกร้า", h_f); ws3.merge_range(0, c_idx+1, 1, c_idx+1, "กล่อง", h_f)
+                        
                         for i, r_val in m_weight.reset_index(drop=True).iterrows():
                             row_n = i+2; ws3.write(row_n,0,i+1,d_f); ws3.write(row_n,1,r_val['TRIP'],d_f); ws3.write(row_n,2,r_val['STORE NAME'],d_f)
                             d_idx = 3
                             for p in fixed_meat_list:
                                 val = r_val.get(p, 0)
                                 if val == 0 and p == "หมูคูโรบุตะ": val = r_val.get("หมูสามชั้นคูโรบูตะ", 0)
-                                ws3.write(row_n, d_idx, val if val != 0 else "-", d_f)
-                                ws3.write(row_n, d_idx+1, "", d_f); d_idx += 2
+                                ws3.write(row_n, d_idx, val if val != 0 else "-", d_f); ws3.write(row_n, d_idx+1, "", d_f); d_idx += 2
+                            # ✨ เพิ่มเส้นขอบให้ 2 ช่องสุดท้าย (ตะกร้า/กล่อง)
+                            ws3.write(row_n, d_idx, "", d_f); ws3.write(row_n, d_idx+1, "", d_f)
+                        
                         t_row = len(m_weight) + 2; ws3.write(t_row, 2, "TOTAL", s_f)
                         d_idx = 3
                         for p in fixed_meat_list:
                             val = m_weight[p].sum() if p in m_weight.columns else 0
                             if val == 0 and p == "หมูคูโรบุตะ": val = m_weight.get("หมูสามชั้นคูโรบูตะ", pd.Series([0])).sum()
                             ws3.write(t_row, d_idx, val if val != 0 else "-", s_f); ws3.write(t_row, d_idx+1, "", s_f); d_idx += 2
+                        # ✨ เพิ่มเส้นขอบ TOTAL ให้ 2 ช่องสุดท้าย
+                        ws3.write(t_row, d_idx, "", s_f); ws3.write(t_row, d_idx+1, "", s_f)
                         ws3.set_column('B:C', 25); ws3.set_column('D:ZZ', 12)
 
                         # --- 4. จัดกล่อง ---
-                        ws4 = wb.add_worksheet("จัดกล่อง")
-                        cols_box = list(m_box.columns)
-                        ws4.write(0, 0, "No.", h_f)
+                        ws4 = wb.add_worksheet("จัดกล่อง"); cols_box = list(m_box.columns); ws4.write(0, 0, "No.", h_f)
                         for idx, col in enumerate(cols_box): ws4.write(0, idx + 1, col, h_f)
                         for i, r_val in m_box.reset_index(drop=True).iterrows():
                             ws4.write(i+1, 0, i+1, d_f)
@@ -240,14 +166,11 @@ if file:
                         l_row = len(m_box) + 1; ws4.write(l_row, 2, "TOTAL", s_f)
                         for idx, col in enumerate(cols_box):
                             if col not in ['TRIP', 'STORE NAME']:
-                                total_val = m_box[col].sum()
-                                ws4.write(l_row, idx + 1, total_val if total_val != 0 else "-", s_f)
+                                total_val = m_box[col].sum(); ws4.write(l_row, idx + 1, total_val if total_val != 0 else "-", s_f)
                         ws4.set_column('B:C', 25); ws4.set_column('D:ZZ', 12)
 
                         # --- 5. Order ---
-                        ws5 = wb.add_worksheet("Order")
-                        order_cols = list(m_order.columns)
-                        ws5.write(0, 0, "No.", h_f)
+                        ws5 = wb.add_worksheet("Order"); order_cols = list(m_order.columns); ws5.write(0, 0, "No.", h_f)
                         for idx, col in enumerate(order_cols): ws5.write(0, idx + 1, col, h_f)
                         for i, r_val in m_order.reset_index(drop=True).iterrows():
                             ws5.write(i+1, 0, i+1, d_f)
@@ -257,6 +180,5 @@ if file:
                         ws5.set_column('B:C', 25); ws5.set_column('D:ZZ', 12)
 
                     st.balloons()
-                    st.download_button(label="💖 ดาวน์โหลดไฟล์ (สะอ้านตามากค่ะ!) 💖", data=output.getvalue(), file_name=f"Queen_Report_Final_{datetime.now().strftime('%Y-%m-%d')}.xlsx")
-    except Exception as e:
-        st.error(f"อุ๊ย! มีข้อผิดพลาดนิดหน่อยค่ะคุณพี่: {e}")
+                    st.download_button(label="💖 ดาวน์โหลดไฟล์ (ขอบตารางเป๊ะแล้วค่ะ!) 💖", data=output.getvalue(), file_name=f"Queen_Report_Fixed_Border_{datetime.now().strftime('%Y-%m-%d')}.xlsx")
+    except Exception as e: st.error(f"อุ๊ย! ผิดพลาดค่ะ: {e}")
