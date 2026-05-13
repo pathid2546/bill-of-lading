@@ -92,6 +92,29 @@ if file:
                         
                         fixed_meat_list = ["เนื้อสันคอ", "เนื้อออส", "หมูสันคอ", "หมูสามชั้น", "หมูสันนอก", "หมูคูโรบุตะ"]
 
+                        # --- ฟังก์ชันช่วยหาค่าโดยใช้ Keyword (แก้ไขดักทุกสระอู) ---
+                        def get_val_by_kw(row, target_name):
+                            if target_name in row: return row[target_name]
+                            
+                            # ดักคำว่า หมูคูโรบุตะ / คูโรบูตะ
+                            if target_name == "หมูคูโรบุตะ":
+                                kuro_kws = ["คุโร", "คูโร", "บูตะ", "บุตะ", "Kuro"]
+                                for col in row.index:
+                                    if all(k in str(col) for k in ["หมู", "สามชั้น"]) and any(k in str(col) for k in kuro_kws):
+                                        return row[col]
+                            
+                            # ดักคำว่า เนื้อออส
+                            if target_name == "เนื้อออส":
+                                aus_kws = ["ออส", "Aus"]
+                                for col in row.index:
+                                    if any(k in str(col) for k in aus_kws): return row[col]
+                            
+                            # กรณีชื่อตรงกันแต่คนละ Format (เช่นตัด Space)
+                            for col in row.index:
+                                if str(target_name).replace(" ","") == str(col).replace(" ",""):
+                                    return row[col]
+                            return 0
+
                         # --- 1. ป้ายน้ำหนัก (Landscape A4) ---
                         ws1 = wb.add_worksheet("ป้ายน้ำหนัก"); ws1.set_landscape(); ws1.set_margins(0.2, 0.2, 0.2, 0.2); ws1.set_paper(9)
                         f_bnn = wb.add_format({'bold':True, 'size':30, 'border':2, 'align':'center', 'valign':'vcenter', 'bg_color':header_bg})
@@ -101,7 +124,7 @@ if file:
                         f_store_v = wb.add_format({'bold':True, 'size':24, 'border':1, 'align':'center', 'valign':'vcenter'})
                         ws1.set_column('A:A', 38); ws1.set_column('B:E', 16)
                         row_idx = 0; breaks_w = []
-                        for _, row_s in m_weight[['TRIP', 'STORE NAME']].iterrows():
+                        for _, row_s in m_weight.iterrows():
                             ws1.merge_range(row_idx, 0, row_idx, 2, "BNN (สุกี้ตี๋น้อย)", f_bnn)
                             ws1.merge_range(row_idx, 3, row_idx, 4, row_s['TRIP'], f_trip_v)
                             ws1.set_row(row_idx, 65); ws1.write(row_idx + 1, 0, "STORE:", f_unit_v)
@@ -128,7 +151,7 @@ if file:
                             b_row += 4; breaks_b.append(b_row)
                         ws2.set_h_pagebreaks(breaks_b)
 
-                        # --- 3. น้ำหนัก (Summary) ✨ Height 50px ✨ ---
+                        # --- 3. น้ำหนัก (Summary) 50px ---
                         ws3 = wb.add_worksheet("น้ำหนัก"); ws3.set_portrait(); ws3.set_paper(9); ws3.set_margins(0.2, 0.2, 0.2, 0.2); ws3.fit_to_pages(1, 0)
                         ws3.repeat_rows(0, 1); ws3.freeze_panes(2, 3)
                         ws3.merge_range(0,0,1,0,"No.",h_f); ws3.merge_range(0,1,1,1,"TRIP",h_f); ws3.merge_range(0,2,1,2,"STORE NAME",h_f)
@@ -137,25 +160,28 @@ if file:
                             ws3.write(0, c_idx, "จำนวนสั่ง", h_f); ws3.write(1, c_idx, p, h_f); ws3.merge_range(0, c_idx+1, 1, c_idx+1, "จ่ายจริง", h_f); c_idx += 2
                         ws3.merge_range(0, c_idx, 1, c_idx, "ตะกร้า", h_f); ws3.merge_range(0, c_idx+1, 1, c_idx+1, "กล่อง", h_f)
                         for i, r_val in m_weight.reset_index(drop=True).iterrows():
-                            row_n = i+2; ws3.set_row(row_n, 37.5) # 50px
+                            row_n = i+2; ws3.set_row(row_n, 37.5)
                             ws3.write(row_n, 0, i+1, d_f); ws3.write(row_n, 1, r_val['TRIP'], d_f); ws3.write(row_n, 2, r_val['STORE NAME'], d_f)
                             d_idx = 3
                             for p in fixed_meat_list:
-                                val = r_val.get(p, 0); ws3.write(row_n, d_idx, val if val != 0 else "-", d_f); ws3.write(row_n, d_idx+1, "", d_f); d_idx += 2
+                                val = get_val_by_kw(r_val, p)
+                                ws3.write(row_n, d_idx, val if val != 0 else "-", d_f); ws3.write(row_n, d_idx+1, "", d_f); d_idx += 2
                             ws3.write(row_n, d_idx, "", d_f); ws3.write(row_n, d_idx+1, "", d_f)
                         t_row = len(m_weight) + 2; ws3.set_row(t_row, 37.5); ws3.write(t_row, 2, "TOTAL", s_f)
                         d_idx = 3
                         for p in fixed_meat_list:
-                            val = m_weight[p].sum() if p in m_weight.columns else 0; ws3.write(t_row, d_idx, val if val != 0 else "-", s_f); ws3.write(t_row, d_idx+1, "", s_f); d_idx += 2
+                            total_sum = 0
+                            for _, r_v in m_weight.iterrows(): total_sum += get_val_by_kw(r_v, p)
+                            ws3.write(t_row, d_idx, total_sum if total_sum != 0 else "-", s_f); ws3.write(t_row, d_idx+1, "", s_f); d_idx += 2
                         ws3.set_column('A:A', 4); ws3.set_column('B:B', 8); ws3.set_column('C:C', 20); ws3.set_column('D:ZZ', 8)
 
-                        # --- 4. จัดกล่อง (Summary) ✨ Height 50px + Landscape ✨ ---
+                        # --- 4. จัดกล่อง (Summary) 50px ---
                         ws4 = wb.add_worksheet("จัดกล่อง"); ws4.set_landscape(); ws4.set_paper(9); ws4.set_margins(0.2, 0.2, 0.2, 0.2); ws4.fit_to_pages(1, 0)
                         ws4.repeat_rows(0, 0); ws4.freeze_panes(1, 3)
                         cols_box = list(m_box.columns); ws4.write(0, 0, "No.", h_f)
                         for idx, col in enumerate(cols_box): ws4.write(0, idx + 1, col, h_f)
                         for i, r_val in m_box.reset_index(drop=True).iterrows():
-                            row_n = i+1; ws4.set_row(row_n, 37.5) # 50px เหมือนกันแล้วค่ะคุณพี่
+                            row_n = i+1; ws4.set_row(row_n, 37.5)
                             ws4.write(row_n, 0, i+1, d_f)
                             for idx, val in enumerate(r_val):
                                 display_val = val if val != 0 else "-" if cols_box[idx] not in ['TRIP', 'STORE NAME'] else val
@@ -179,5 +205,5 @@ if file:
                         ws5.set_column('B:C', 18); ws5.set_column('D:ZZ', 8)
 
                     st.balloons()
-                    st.download_button(label="💖 ดาวน์โหลดไฟล์ (ทุกหน้าเป๊ะปัง) 💖", data=output.getvalue(), file_name=f"Queen_Report_V50px_{datetime.now().strftime('%Y-%m-%d')}.xlsx")
+                    st.download_button(label="💖 ดาวน์โหลดไฟล์ (สะกดแบบไหนก็มาแน่นอน) 💖", data=output.getvalue(), file_name=f"Queen_Report_Final_Kuro_{datetime.now().strftime('%Y-%m-%d')}.xlsx")
     except Exception as e: st.error(f"อุ๊ย! ผิดพลาดค่ะ: {e}")
