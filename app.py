@@ -90,7 +90,6 @@ if file := st.file_uploader("อัปโหลด Excel", type=["xlsx"]):
                 if st.button("🚀 ประมวลผลสร้างไฟล์"):
                     m_weight = full_df[full_df['Product'].str.contains('|'.join(meat_kw), na=False)].pivot_table(index=['TRIP', 'STORE NAME'], columns='Product', values='Qty', aggfunc='sum').fillna(0).reset_index()
                     m_box = full_df[~full_df['Product'].str.contains('|'.join(meat_kw), na=False)].pivot_table(index=['TRIP', 'STORE NAME'], columns='Product', values='Qty', aggfunc='sum').fillna(0).reset_index()
-                    m_order = full_df.pivot_table(index=['TRIP', 'STORE NAME'], columns='Product', values='Qty', aggfunc='sum').fillna(0).reset_index()
                     
                     prods_box_list = [p for p in st.session_state.order_box if p in m_box.columns]
                     m_box = m_box[['TRIP', 'STORE NAME'] + prods_box_list].sort_values(['TRIP', 'STORE NAME'])
@@ -105,26 +104,34 @@ if file := st.file_uploader("อัปโหลด Excel", type=["xlsx"]):
                         d_f = wb.add_format({'border':1, 'align':'center'})
                         s_f = wb.add_format({'bold':True, 'bg_color':'#E9E9E9', 'border':1, 'num_format':'#,##0'})
 
-                        # --- 1. ป้ายน้ำหนัก (แก้ไขหน่วยเฉพาะ เนื้อออส และ หมูคูโรบุตะ) ---
+                        # --- 1. ป้ายน้ำหนัก (ย่อขนาดให้พอดี A4) ---
                         ws1 = wb.add_worksheet("ป้ายน้ำหนัก")
                         ws1.set_landscape(); ws1.set_margins(0.2, 0.2, 0.2, 0.2)
-                        f_bnn = wb.add_format({'bold':True, 'size':36, 'border':2, 'align':'center', 'valign':'vcenter', 'bg_color':header_bg})
-                        f_trip_v = wb.add_format({'bold':True, 'size':40, 'border':2, 'align':'center', 'valign':'vcenter'})
-                        f_unit_v = wb.add_format({'bold':True, 'size':22, 'border':1, 'align':'center', 'valign':'vcenter'})
-                        f_prod_v = wb.add_format({'bold':True, 'size':28, 'border':1, 'valign':'vcenter', 'indent':1})
-                        ws1.set_column('A:A', 38); ws1.set_column('B:E', 18)
+                        
+                        # ย่อขนาด Font ลงเล็กน้อยเพื่อให้กระชับ
+                        f_bnn = wb.add_format({'bold':True, 'size':30, 'border':2, 'align':'center', 'valign':'vcenter', 'bg_color':header_bg})
+                        f_trip_v = wb.add_format({'bold':True, 'size':32, 'border':2, 'align':'center', 'valign':'vcenter'})
+                        f_unit_v = wb.add_format({'bold':True, 'size':18, 'border':1, 'align':'center', 'valign':'vcenter'})
+                        f_prod_v = wb.add_format({'bold':True, 'size':22, 'border':1, 'valign':'vcenter', 'indent':1})
+                        f_store_v = wb.add_format({'bold':True, 'size':24, 'border':1, 'align':'center', 'valign':'vcenter'})
+
+                        ws1.set_column('A:A', 38); ws1.set_column('B:E', 16)
                         
                         fixed_meat_list = ["เนื้อสันคอ", "เนื้อออส", "หมูสันคอ", "หมูสามชั้น", "หมูสันนอก", "หมูคูโรบุตะ"]
                         
                         row_idx = 0; breaks_w = []
                         for _, row_s in m_weight[['TRIP', 'STORE NAME']].iterrows():
+                            # หัวป้าย (Row 0) - ย่อความสูงจาก 80 เหลือ 65
                             ws1.merge_range(row_idx, 0, row_idx, 2, label_title, f_bnn)
                             ws1.merge_range(row_idx, 3, row_idx, 4, row_s['TRIP'], f_trip_v)
-                            ws1.set_row(row_idx, 80)
-                            ws1.write(row_idx + 1, 0, "STORE:", f_unit_v)
-                            ws1.merge_range(row_idx + 1, 1, row_idx + 1, 4, row_s['STORE NAME'], wb.add_format({'bold':True, 'size':28, 'border':1, 'align':'center', 'valign':'vcenter'}))
-                            ws1.set_row(row_idx + 1, 70)
+                            ws1.set_row(row_idx, 65)
                             
+                            # ชื่อร้าน (Row 1) - ย่อความสูงจาก 70 เหลือ 55
+                            ws1.write(row_idx + 1, 0, "STORE:", f_unit_v)
+                            ws1.merge_range(row_idx + 1, 1, row_idx + 1, 4, row_s['STORE NAME'], f_store_v)
+                            ws1.set_row(row_idx + 1, 55)
+                            
+                            # รายการสินค้า (Row 2-7) - ย่อความสูงจาก 75 เหลือ 62
                             for i, item in enumerate(fixed_meat_list):
                                 r = row_idx + 2 + i
                                 ws1.write(r, 0, item, f_prod_v)
@@ -132,15 +139,14 @@ if file := st.file_uploader("อัปโหลด Excel", type=["xlsx"]):
                                 ws1.write(r, 2, "KG.", f_unit_v)
                                 ws1.write(r, 3, "", f_unit_v)
                                 
-                                # 🔥 แก้ไขหน่วยตรงนี้
                                 unit_label = "กล่อง" if item in ["เนื้อออส", "หมูคูโรบุตะ"] else "ตะกร้า"
                                 ws1.write(r, 4, unit_label, f_unit_v)
-                                ws1.set_row(r, 75)
+                                ws1.set_row(r, 62) # ลดความสูงแถวสินค้า
                                 
-                            row_idx += 9; breaks_w.append(row_idx)
+                            row_idx += 9; breaks_w.append(row_idx) # เว้นช่องว่าง 1 แถวก่อนขึ้นป้ายใหม่
                         ws1.set_h_pagebreaks(breaks_w)
 
-                        # --- 2. ป้ายกล่อง ---
+                        # --- 2. ป้ายกล่อง (เหมือนเดิม) ---
                         ws2 = wb.add_worksheet("ป้ายกล่อง")
                         ws2.set_landscape(); ws2.set_margins(0.2, 0.2, 0.2, 0.2)
                         f_label_big = wb.add_format({'bold':True, 'size':40, 'border':1, 'align':'center', 'valign':'vcenter'})
@@ -202,15 +208,6 @@ if file := st.file_uploader("อัปโหลด Excel", type=["xlsx"]):
                         for idx, col in enumerate(cols_box):
                             if col not in ['TRIP', 'STORE NAME']: ws4.write(l_row, idx + 1, m_box[col].sum(), s_f)
                         ws4.set_column('A:A', 5); ws4.set_column('B:C', 25); ws4.set_column('D:ZZ', 12)
-
-                        # --- 5. Order ---
-                        ws5 = wb.add_worksheet("Order")
-                        ws5.write(0, 0, "No.", h_f)
-                        for idx, col in enumerate(m_order.columns): ws5.write(0, idx + 1, col, h_f)
-                        for i, r_val in m_order.reset_index(drop=True).iterrows():
-                            ws5.write(i+1, 0, i+1, d_f)
-                            for idx, val in enumerate(r_val): ws5.write(i+1, idx+1, val, d_f)
-                        ws5.set_column('B:C', 25); ws5.set_column('D:ZZ', 12)
 
                     st.download_button(label="📥 ดาวน์โหลดไฟล์", data=output.getvalue(), file_name=f"Report_{datetime.now().strftime('%Y-%m-%d')}.xlsx")
     except Exception as e:
