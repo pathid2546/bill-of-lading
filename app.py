@@ -69,7 +69,7 @@ if file := st.file_uploader("อัปโหลด Excel", type=["xlsx"]):
 
             full_df = pd.DataFrame(all_rows); meat_kw = ['เนื้อ', 'หมู', 'Meat', 'Pork']
             
-            # 🔥 เรียงลำดับสินค้าหน้าจัดกล่องตามรูป
+            # 🔥 เรียงลำดับสินค้าตามรูปภาพ
             fixed_top = ["ปูอัด", "ปูอัดชีส", "หอยเชลล์โฮตาเตะญี่ปุ่น(NW100%)", "ปลาดอลลี่ NW 70% (200-400)", "ชีสมอสซาเรลล่า", "คิมมาริ", "น้ำจิ้มพอนสึ ยูสุ (ถุง 2 ก.ก.)", "น้ำจิ้มสุกี้"]
             
             if not st.session_state.order_box: 
@@ -147,24 +147,33 @@ if file := st.file_uploader("อัปโหลด Excel", type=["xlsx"]):
                             b_row += 4; breaks_b.append(b_row)
                         ws2.set_h_pagebreaks(breaks_b)
 
-                        # --- 3. น้ำหนัก (Fix ข้อมูล + ตะกร้า/กล่อง) ---
+                        # --- 3. น้ำหนัก (Fix ข้อมูล + Mapping ชื่อสินค้า) ---
                         ws3 = wb.add_worksheet("น้ำหนัก")
                         ws3.merge_range(0,0,1,0,"No.",h_f); ws3.merge_range(0,1,1,1,"TRIP",h_f); ws3.merge_range(0,2,1,2,"STORE NAME",h_f)
+                        
+                        # กำหนด Mapping เพื่อแก้ปัญหาชื่อไม่ตรง
+                        # 'ชื่อในไฟล์': 'ชื่อที่อยากแสดง'
+                        meat_mapping = {
+                            "หมูสามชั้นคูโรบูตะ": "หมูคูโรบุตะ"
+                        }
+                        
                         c_idx = 3
-                        # เขียนหัวตาราง Fixed เนื้อสัตว์
                         for p in fixed_meat_list:
                             ws3.write(0, c_idx, "จำนวนสั่ง", h_f); ws3.write(1, c_idx, p, h_f); ws3.merge_range(0, c_idx+1, 1, c_idx+1, "จ่ายจริง", h_f); c_idx += 2
-                        # เพิ่ม ตะกร้า กับ กล่อง ท้ายสุด
-                        ws3.merge_range(0, c_idx, 1, c_idx, "ตะกร้า", h_f)
-                        ws3.merge_range(0, c_idx+1, 1, c_idx+1, "กล่อง", h_f)
+                        ws3.merge_range(0, c_idx, 1, c_idx, "ตะกร้า", h_f); ws3.merge_range(0, c_idx+1, 1, c_idx+1, "กล่อง", h_f)
                         
                         for i, r_val in m_weight.reset_index(drop=True).iterrows():
                             row_n = i+2; ws3.write(row_n,0,i+1,d_f); ws3.write(row_n,1,r_val['TRIP'],d_f); ws3.write(row_n,2,r_val['STORE NAME'],d_f)
                             d_idx = 3
                             for p in fixed_meat_list:
+                                # ค้นหาค่าจากชื่อปกติก่อน ถ้าไม่มีให้หาจากชื่อใน Mapping
                                 val = r_val.get(p, 0)
+                                if val == 0:
+                                    # ลองหาชื่อในไฟล์ที่แมพมาเป็นชื่อนี้
+                                    raw_name = next((k for k, v in meat_mapping.items() if v == p), None)
+                                    if raw_name: val = r_val.get(raw_name, 0)
+                                    
                                 ws3.write(row_n, d_idx, val, d_f); ws3.write(row_n, d_idx+1, "", d_f); d_idx += 2
-                            # ช่องว่างสำหรับ ตะกร้า และ กล่อง
                             ws3.write(row_n, d_idx, "", d_f); ws3.write(row_n, d_idx+1, "", d_f)
                         ws3.set_column('B:C', 25); ws3.set_column('D:ZZ', 12)
 
