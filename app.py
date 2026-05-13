@@ -106,7 +106,7 @@ if file := st.file_uploader("อัปโหลด Excel", type=["xlsx"]):
                         d_f = wb.add_format({'border':1, 'align':'center'})
                         s_f = wb.add_format({'bold':True, 'bg_color':'#E9E9E9', 'border':1, 'num_format':'#,##0'})
 
-                        # --- 1. ป้ายน้ำหนัก ---
+                        # --- 1. ป้ายน้ำหนัก --- (เหมือนเดิม)
                         ws1 = wb.add_worksheet("ป้ายน้ำหนัก")
                         ws1.set_landscape(); ws1.set_margins(0.2, 0.2, 0.2, 0.2)
                         f_bnn = wb.add_format({'bold':True, 'size':36, 'border':2, 'align':'center', 'valign':'vcenter', 'bg_color':header_bg})
@@ -114,7 +114,6 @@ if file := st.file_uploader("อัปโหลด Excel", type=["xlsx"]):
                         f_unit_v = wb.add_format({'bold':True, 'size':22, 'border':1, 'align':'center', 'valign':'vcenter'})
                         f_prod_v = wb.add_format({'bold':True, 'size':28, 'border':1, 'valign':'vcenter', 'indent':1})
                         ws1.set_column('A:A', 38); ws1.set_column('B:E', 18)
-                        
                         fixed_meat_list = ["เนื้อสันคอ", "เนื้อออส", "หมูสันคอ", "หมูสามชั้น", "หมูสันนอก", "หมูคูโรบุตะ"]
                         row_idx = 0; breaks_w = []
                         for _, row_s in m_weight[['TRIP', 'STORE NAME']].iterrows():
@@ -131,7 +130,7 @@ if file := st.file_uploader("อัปโหลด Excel", type=["xlsx"]):
                             row_idx += 9; breaks_w.append(row_idx)
                         ws1.set_h_pagebreaks(breaks_w)
 
-                        # --- 2. ป้ายกล่อง ---
+                        # --- 2. ป้ายกล่อง --- (เหมือนเดิม)
                         ws2 = wb.add_worksheet("ป้ายกล่อง")
                         ws2.set_landscape(); ws2.set_margins(0.2, 0.2, 0.2, 0.2)
                         f_label_big = wb.add_format({'bold':True, 'size':40, 'border':1, 'align':'center', 'valign':'vcenter'})
@@ -147,37 +146,45 @@ if file := st.file_uploader("อัปโหลด Excel", type=["xlsx"]):
                             b_row += 4; breaks_b.append(b_row)
                         ws2.set_h_pagebreaks(breaks_b)
 
-                        # --- 3. น้ำหนัก (Fix ข้อมูล + Mapping ชื่อสินค้า) ---
+                        # --- 3. น้ำหนัก (Fix ข้อมูล + Mapping + ยอดรวม TOTAL) ---
                         ws3 = wb.add_worksheet("น้ำหนัก")
                         ws3.merge_range(0,0,1,0,"No.",h_f); ws3.merge_range(0,1,1,1,"TRIP",h_f); ws3.merge_range(0,2,1,2,"STORE NAME",h_f)
-                        
-                        # กำหนด Mapping เพื่อแก้ปัญหาชื่อไม่ตรง
-                        # 'ชื่อในไฟล์': 'ชื่อที่อยากแสดง'
-                        meat_mapping = {
-                            "หมูสามชั้นคูโรบูตะ": "หมูคูโรบุตะ"
-                        }
-                        
+                        meat_mapping = {"หมูสามชั้นคูโรบูตะ": "หมูคูโรบุตะ"}
                         c_idx = 3
                         for p in fixed_meat_list:
                             ws3.write(0, c_idx, "จำนวนสั่ง", h_f); ws3.write(1, c_idx, p, h_f); ws3.merge_range(0, c_idx+1, 1, c_idx+1, "จ่ายจริง", h_f); c_idx += 2
                         ws3.merge_range(0, c_idx, 1, c_idx, "ตะกร้า", h_f); ws3.merge_range(0, c_idx+1, 1, c_idx+1, "กล่อง", h_f)
                         
-                        for i, r_val in m_weight.reset_index(drop=True).iterrows():
+                        m_weight_reset = m_weight.reset_index(drop=True)
+                        for i, r_val in m_weight_reset.iterrows():
                             row_n = i+2; ws3.write(row_n,0,i+1,d_f); ws3.write(row_n,1,r_val['TRIP'],d_f); ws3.write(row_n,2,r_val['STORE NAME'],d_f)
                             d_idx = 3
                             for p in fixed_meat_list:
-                                # ค้นหาค่าจากชื่อปกติก่อน ถ้าไม่มีให้หาจากชื่อใน Mapping
                                 val = r_val.get(p, 0)
                                 if val == 0:
-                                    # ลองหาชื่อในไฟล์ที่แมพมาเป็นชื่อนี้
                                     raw_name = next((k for k, v in meat_mapping.items() if v == p), None)
                                     if raw_name: val = r_val.get(raw_name, 0)
-                                    
                                 ws3.write(row_n, d_idx, val, d_f); ws3.write(row_n, d_idx+1, "", d_f); d_idx += 2
                             ws3.write(row_n, d_idx, "", d_f); ws3.write(row_n, d_idx+1, "", d_f)
+
+                        # 🔥 ส่วนยอดรวมท้ายตาราง (TOTAL) ของชีทน้ำหนัก
+                        total_row_idx = len(m_weight_reset) + 2
+                        ws3.write(total_row_idx, 2, "TOTAL", s_f)
+                        d_idx = 3
+                        for p in fixed_meat_list:
+                            # รวมยอดสั่ง (Column จ่ายจริง เว้นว่างไว้)
+                            val = m_weight[p].sum() if p in m_weight.columns else 0
+                            if val == 0:
+                                raw_name = next((k for k, v in meat_mapping.items() if v == p), None)
+                                if raw_name: val = m_weight[raw_name].sum()
+                            ws3.write(total_row_idx, d_idx, val, s_f)
+                            ws3.write(total_row_idx, d_idx+1, "", s_f)
+                            d_idx += 2
+                        # ช่อง TOTAL ของ ตะกร้า และ กล่อง
+                        ws3.write(total_row_idx, d_idx, "", s_f); ws3.write(total_row_idx, d_idx+1, "", s_f)
                         ws3.set_column('B:C', 25); ws3.set_column('D:ZZ', 12)
 
-                        # --- 4. จัดกล่อง ---
+                        # --- 4. จัดกล่อง --- (เหมือนเดิม)
                         ws4 = wb.add_worksheet("จัดกล่อง")
                         cols_box = list(m_box.columns)
                         ws4.write(0, 0, "No.", h_f)
@@ -192,7 +199,7 @@ if file := st.file_uploader("อัปโหลด Excel", type=["xlsx"]):
                             if col not in ['TRIP', 'STORE NAME']: ws4.write(l_row, idx + 1, m_box[col].sum(), s_f)
                         ws4.set_column('A:A', 5); ws4.set_column('B:C', 25); ws4.set_column('D:ZZ', 12)
 
-                        # --- 5. Order ---
+                        # --- 5. Order --- (เหมือนเดิม)
                         ws5 = wb.add_worksheet("Order")
                         ws5.write(0, 0, "No.", h_f)
                         for idx, col in enumerate(m_order.columns): ws5.write(0, idx + 1, col, h_f)
