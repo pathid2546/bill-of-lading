@@ -69,7 +69,7 @@ if file := st.file_uploader("อัปโหลด Excel", type=["xlsx"]):
 
             full_df = pd.DataFrame(all_rows); meat_kw = ['เนื้อ', 'หมู', 'Meat', 'Pork']
             
-            # 🔥 เรียงลำดับสินค้าตามรูปภาพ
+            # 🔥 เรียงลำดับสินค้าหน้าจัดกล่องตามรูป
             fixed_top = ["ปูอัด", "ปูอัดชีส", "หอยเชลล์โฮตาเตะญี่ปุ่น(NW100%)", "ปลาดอลลี่ NW 70% (200-400)", "ชีสมอสซาเรลล่า", "คิมมาริ", "น้ำจิ้มพอนสึ ยูสุ (ถุง 2 ก.ก.)", "น้ำจิ้มสุกี้"]
             
             if not st.session_state.order_box: 
@@ -102,70 +102,73 @@ if file := st.file_uploader("อัปโหลด Excel", type=["xlsx"]):
                         wb = writer.book
                         header_bg = '#F2F2F2'
                         label_title = "BNN (สุกี้ตี๋น้อย)"
-                        
-                        # ฟอร์แมต
                         h_f = wb.add_format({'bold':True, 'align':'center', 'valign':'vcenter', 'bg_color':header_bg, 'border':1, 'text_wrap':True})
                         d_f = wb.add_format({'border':1, 'align':'center'})
                         s_f = wb.add_format({'bold':True, 'bg_color':'#E9E9E9', 'border':1, 'num_format':'#,##0'})
 
                         # --- 1. ป้ายน้ำหนัก ---
-                        ws_tag_w = wb.add_worksheet("ป้ายน้ำหนัก")
-                        ws_tag_w.set_landscape(); ws_tag_w.set_margins(0.2, 0.2, 0.2, 0.2); ws_tag_w.fit_to_pages(1, 0)
+                        ws1 = wb.add_worksheet("ป้ายน้ำหนัก")
+                        ws1.set_landscape(); ws1.set_margins(0.2, 0.2, 0.2, 0.2)
                         f_bnn = wb.add_format({'bold':True, 'size':36, 'border':2, 'align':'center', 'valign':'vcenter', 'bg_color':header_bg})
                         f_trip_v = wb.add_format({'bold':True, 'size':40, 'border':2, 'align':'center', 'valign':'vcenter'})
-                        f_store_v = wb.add_format({'bold':True, 'size':28, 'border':1, 'align':'center', 'valign':'vcenter', 'shrink':True})
-                        f_prod_v = wb.add_format({'bold':True, 'size':28, 'border':1, 'valign':'vcenter', 'indent':1})
                         f_unit_v = wb.add_format({'bold':True, 'size':22, 'border':1, 'align':'center', 'valign':'vcenter'})
+                        f_prod_v = wb.add_format({'bold':True, 'size':28, 'border':1, 'valign':'vcenter', 'indent':1})
+                        ws1.set_column('A:A', 38); ws1.set_column('B:E', 18)
                         
-                        ws_tag_w.set_column('A:A', 38); ws_tag_w.set_column('B:E', 18)
-                        fixed_items = ["เนื้อสันคอ", "เนื้อออส", "หมูสันคอ", "หมูสามชั้น", "หมูสันนอก"]
+                        fixed_meat_list = ["เนื้อสันคอ", "เนื้อออส", "หมูสันคอ", "หมูสามชั้น", "หมูสันนอก", "หมูคูโรบุตะ"]
                         row_idx = 0; breaks_w = []
                         for _, row_s in m_weight[['TRIP', 'STORE NAME']].iterrows():
-                            ws_tag_w.merge_range(row_idx, 0, row_idx, 2, label_title, f_bnn)
-                            ws_tag_w.merge_range(row_idx, 3, row_idx, 4, row_s['TRIP'], f_trip_v)
-                            ws_tag_w.set_row(row_idx, 80)
-                            ws_tag_w.write(row_idx + 1, 0, "STORE:", f_unit_v)
-                            ws_tag_w.merge_range(row_idx + 1, 1, row_idx + 1, 4, row_s['STORE NAME'], f_store_v)
-                            ws_tag_w.set_row(row_idx + 1, 70)
-                            for i, item in enumerate(fixed_items):
+                            ws1.merge_range(row_idx, 0, row_idx, 2, label_title, f_bnn)
+                            ws1.merge_range(row_idx, 3, row_idx, 4, row_s['TRIP'], f_trip_v)
+                            ws1.set_row(row_idx, 80)
+                            ws1.write(row_idx + 1, 0, "STORE:", f_unit_v)
+                            ws1.merge_range(row_idx + 1, 1, row_idx + 1, 4, row_s['STORE NAME'], wb.add_format({'bold':True, 'size':28, 'border':1, 'align':'center', 'valign':'vcenter'}))
+                            ws1.set_row(row_idx + 1, 70)
+                            for i, item in enumerate(fixed_meat_list):
                                 r = row_idx + 2 + i
-                                ws_tag_w.write(r, 0, item, f_prod_v); ws_tag_w.write(r, 1, "", f_unit_v); ws_tag_w.write(r, 2, "KG.", f_unit_v)
-                                ws_tag_w.write(r, 3, "", f_unit_v); ws_tag_w.write(r, 4, "ตะกร้า", f_unit_v); ws_tag_w.set_row(r, 75)
-                            row_idx += 8; breaks_w.append(row_idx)
-                        ws_tag_w.set_h_pagebreaks(breaks_w)
+                                ws1.write(r, 0, item, f_prod_v); ws1.write(r, 1, "", f_unit_v); ws1.write(r, 2, "KG.", f_unit_v)
+                                ws1.write(r, 3, "", f_unit_v); ws1.write(r, 4, "ตะกร้า", f_unit_v); ws1.set_row(r, 75)
+                            row_idx += 9; breaks_w.append(row_idx)
+                        ws1.set_h_pagebreaks(breaks_w)
 
                         # --- 2. ป้ายกล่อง ---
-                        ws_tag_b = wb.add_worksheet("ป้ายกล่อง")
-                        ws_tag_b.set_landscape(); ws_tag_b.set_margins(0.2, 0.2, 0.2, 0.2); ws_tag_b.fit_to_pages(1, 0)
-                        f_bnn_big = wb.add_format({'bold':True, 'size':60, 'border':2, 'align':'center', 'valign':'vcenter', 'bg_color':header_bg})
-                        f_store_big = wb.add_format({'bold':True, 'size':35, 'border':1, 'align':'center', 'valign':'vcenter', 'text_wrap':True})
-                        f_qty_big = wb.add_format({'bold':True, 'size':80, 'border':1, 'align':'center', 'valign':'vcenter'})
+                        ws2 = wb.add_worksheet("ป้ายกล่อง")
+                        ws2.set_landscape(); ws2.set_margins(0.2, 0.2, 0.2, 0.2)
                         f_label_big = wb.add_format({'bold':True, 'size':40, 'border':1, 'align':'center', 'valign':'vcenter'})
-                        f_trip_big = wb.add_format({'bold':True, 'size':70, 'border':1, 'align':'center', 'valign':'vcenter'})
-                        ws_tag_b.set_column('A:A', 50); ws_tag_b.set_column('B:B', 60)
+                        f_qty_big = wb.add_format({'bold':True, 'size':80, 'border':1, 'align':'center', 'valign':'vcenter'})
+                        ws2.set_column('A:A', 50); ws2.set_column('B:B', 60)
                         b_row = 0; breaks_b = []
                         for _, row_b in m_box.iterrows():
-                            ws_tag_b.merge_range(b_row, 0, b_row, 1, label_title, f_bnn_big); ws_tag_b.set_row(b_row, 120)
-                            ws_tag_b.write(b_row+1, 0, "STORE NAME", f_label_big); ws_tag_b.write(b_row+1, 1, row_b['STORE NAME'], f_store_big); ws_tag_b.set_row(b_row+1, 100)
-                            ws_tag_b.write(b_row+2, 0, "จำนวนกล่อง", f_label_big); ws_tag_b.write(b_row+2, 1, row_b['รวมจำนวน'], f_qty_big); ws_tag_b.set_row(b_row+2, 130)
-                            ws_tag_b.write(b_row+3, 0, "TRIP NO.", f_label_big); ws_tag_b.write(b_row+3, 1, row_b['TRIP'], f_trip_big); ws_tag_b.set_row(b_row+3, 120)
+                            ws2.merge_range(b_row, 0, b_row, 1, label_title, wb.add_format({'bold':True, 'size':60, 'border':2, 'align':'center', 'valign':'vcenter', 'bg_color':header_bg}))
+                            ws2.write(b_row+1, 0, "STORE NAME", f_label_big); ws2.write(b_row+1, 1, row_b['STORE NAME'], wb.add_format({'bold':True, 'size':35, 'border':1, 'align':'center', 'valign':'vcenter', 'text_wrap':True}))
+                            ws2.write(b_row+2, 0, "จำนวนกล่อง", f_label_big); ws2.write(b_row+2, 1, row_b['รวมจำนวน'], f_qty_big)
+                            ws2.write(b_row+3, 0, "TRIP NO.", f_label_big); ws2.write(b_row+3, 1, row_b['TRIP'], wb.add_format({'bold':True, 'size':70, 'border':1, 'align':'center', 'valign':'vcenter'}))
+                            ws2.set_row(b_row, 120); ws2.set_row(b_row+1, 100); ws2.set_row(b_row+2, 130); ws2.set_row(b_row+3, 120)
                             b_row += 4; breaks_b.append(b_row)
-                        ws_tag_b.set_h_pagebreaks(breaks_b)
+                        ws2.set_h_pagebreaks(breaks_b)
 
-                        # --- 3. น้ำหนัก ---
+                        # --- 3. น้ำหนัก (Fix ข้อมูล + ตะกร้า/กล่อง) ---
                         ws3 = wb.add_worksheet("น้ำหนัก")
-                        ws_cols = [p for p in original_order if p in m_weight.columns and p not in ['TRIP', 'STORE NAME']]
                         ws3.merge_range(0,0,1,0,"No.",h_f); ws3.merge_range(0,1,1,1,"TRIP",h_f); ws3.merge_range(0,2,1,2,"STORE NAME",h_f)
                         c_idx = 3
-                        for p in ws_cols:
+                        # เขียนหัวตาราง Fixed เนื้อสัตว์
+                        for p in fixed_meat_list:
                             ws3.write(0, c_idx, "จำนวนสั่ง", h_f); ws3.write(1, c_idx, p, h_f); ws3.merge_range(0, c_idx+1, 1, c_idx+1, "จ่ายจริง", h_f); c_idx += 2
+                        # เพิ่ม ตะกร้า กับ กล่อง ท้ายสุด
+                        ws3.merge_range(0, c_idx, 1, c_idx, "ตะกร้า", h_f)
+                        ws3.merge_range(0, c_idx+1, 1, c_idx+1, "กล่อง", h_f)
+                        
                         for i, r_val in m_weight.reset_index(drop=True).iterrows():
                             row_n = i+2; ws3.write(row_n,0,i+1,d_f); ws3.write(row_n,1,r_val['TRIP'],d_f); ws3.write(row_n,2,r_val['STORE NAME'],d_f)
                             d_idx = 3
-                            for p in ws_cols: ws3.write(row_n, d_idx, r_val[p], d_f); ws3.write(row_n, d_idx+1, "", d_f); d_idx += 2
+                            for p in fixed_meat_list:
+                                val = r_val.get(p, 0)
+                                ws3.write(row_n, d_idx, val, d_f); ws3.write(row_n, d_idx+1, "", d_f); d_idx += 2
+                            # ช่องว่างสำหรับ ตะกร้า และ กล่อง
+                            ws3.write(row_n, d_idx, "", d_f); ws3.write(row_n, d_idx+1, "", d_f)
                         ws3.set_column('B:C', 25); ws3.set_column('D:ZZ', 12)
 
-                        # --- 4. จัดกล่อง (เพิ่ม No. และ TOTAL) ---
+                        # --- 4. จัดกล่อง ---
                         ws4 = wb.add_worksheet("จัดกล่อง")
                         cols_box = list(m_box.columns)
                         ws4.write(0, 0, "No.", h_f)
