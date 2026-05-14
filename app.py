@@ -36,10 +36,12 @@ if file:
     try:
         # --- ดึงข้อมูลจาก Sheet Route มาทำ Lookup ---
         route_df = pd.read_excel(file, sheet_name='Route', header=None)
+        
         # รหัสร้าน (Col 0) -> ทริป (Col 2)
         route_lookup = {str(r[0]).strip(): str(r[2]).strip() for _, r in route_df.iterrows() if pd.notna(r[0])}
-        # รหัสร้าน (Col 0) -> Store Code Order No (Col 1)
-        code_lookup = {str(r[0]).strip(): str(r[1]).strip() for _, r in route_df.iterrows() if pd.notna(r[0])}
+        
+        # ✨ แก้ไขตรงนี้: รหัสร้าน (Col 0) -> ให้เอาค่าจาก Col 0 (STORE CODE) มาทำเป็นวงเล็บเองเลย
+        code_lookup = {str(r[0]).strip(): str(r[0]).strip() for _, r in route_df.iterrows() if pd.notna(r[0])}
 
         xls = pd.ExcelFile(file); main_sheet = xls.sheet_names[0]
         raw_df = pd.read_excel(file, sheet_name=main_sheet, header=None)
@@ -63,9 +65,9 @@ if file:
                             col_idx = list(df_clean.columns).index(col_name)
                             current_store_code = str(store_codes_row[col_idx]).strip()
                             
-                            # ✨ สร้างชื่อร้านใหม่ตามรูปแบบ StoreName (Code)
-                            order_no = code_lookup.get(current_store_code, "")
-                            formatted_store_name = f"{col_name} ( {order_no} )" if order_no else col_name
+                            # ✨ สร้างชื่อร้านใหม่ตามรูปที่แนบมา: StoreName ( LT-PLK )
+                            store_id = code_lookup.get(current_store_code, "")
+                            formatted_store_name = f"{col_name} ( {store_id} )" if store_id else col_name
                             
                             all_rows.append({
                                 'TRIP': route_lookup.get(current_store_code, "ไม่พบรหัส"), 
@@ -103,7 +105,6 @@ if file:
                         wb = writer.book; header_bg = '#F2F2F2'
                         h_f = wb.add_format({'bold':True, 'align':'center', 'valign':'vcenter', 'bg_color':header_bg, 'border':1, 'text_wrap':True})
                         
-                        # Style พื้นฐาน
                         d_f_15 = wb.add_format({'border':1, 'align':'center', 'valign':'vcenter', 'font_size': 15, 'text_wrap': True})
                         d_f_21 = wb.add_format({'border':1, 'align':'center', 'valign':'vcenter', 'font_size': 21, 'bold': True})
                         s_f_21 = wb.add_format({'bold':True, 'bg_color':'#E9E9E9', 'border':1, 'num_format':'#,##0', 'valign':'vcenter', 'align':'center', 'font_size': 21})
@@ -127,8 +128,7 @@ if file:
                                 if str(target_name).replace(" ","") == str(col).replace(" ",""): return row[col]
                             return 0
 
-                        # --- 1. ป้ายน้ำหนัก & 2. ป้ายกล่อง (ข้ามส่วนขยายแถว เพราะ Layout ต่างกัน) ---
-                        # ... (โค้ดส่วนนี้ยังคงเดิมเหมือนเวอร์ชันก่อนหน้าเพื่อรักษาหน้าตาสลิป) ...
+                        # --- 1. ป้ายน้ำหนัก ---
                         ws1 = wb.add_worksheet("ป้ายน้ำหนัก"); ws1.set_landscape(); ws1.set_margins(0.2, 0.2, 0.2, 0.2); ws1.set_paper(9)
                         f_bnn = wb.add_format({'bold':True, 'size':30, 'border':2, 'align':'center', 'valign':'vcenter', 'bg_color':header_bg})
                         f_trip_v = wb.add_format({'bold':True, 'size':32, 'border':2, 'align':'center', 'valign':'vcenter'})
@@ -147,6 +147,7 @@ if file:
                             r_idx += 9; bks_w.append(r_idx)
                         ws1.set_h_pagebreaks(bks_w)
 
+                        # --- 2. ป้ายกล่อง ---
                         ws2 = wb.add_worksheet("ป้ายกล่อง"); ws2.set_landscape(); ws2.set_margins(0.2, 0.2, 0.2, 0.2); ws2.set_paper(9)
                         f_label_big = wb.add_format({'bold':True, 'size':40, 'border':1, 'align':'center', 'valign':'vcenter'})
                         f_qty_big = wb.add_format({'bold':True, 'size':80, 'border':1, 'align':'center', 'valign':'vcenter'})
@@ -160,7 +161,7 @@ if file:
                             b_r += 4; bks_b.append(b_r)
                         ws2.set_h_pagebreaks(bks_b)
 
-                        # --- 3. หน้าน้ำหนัก (ขยายแถวเป็น 225 points = 300 pix) ---
+                        # --- 3. หน้าน้ำหนัก (Row 300px) ---
                         ws3 = wb.add_worksheet("น้ำหนัก"); ws3.set_portrait(); ws3.set_paper(9); ws3.set_margins(0.2, 0.2, 0.2, 0.2)
                         ws3.repeat_rows(0, 1); ws3.freeze_panes(2, 3)
                         ws3.merge_range(0,0,1,0,"No.",h_f); ws3.merge_range(0,1,1,1,"TRIP",h_f); ws3.merge_range(0,2,1,2,"STORE NAME",h_f)
@@ -169,7 +170,7 @@ if file:
                             ws3.write(0, c_idx, "จำนวนสั่ง", h_f); ws3.write(1, c_idx, p, h_f); ws3.merge_range(0, c_idx+1, 1, c_idx+1, "จ่ายจริง", h_f); c_idx += 2
                         ws3.merge_range(0, c_idx, 1, c_idx, "ตะกร้า", h_f); ws3.merge_range(0, c_idx+1, 1, c_idx+1, "กล่อง", h_f)
                         for i, r_val in m_weight.reset_index(drop=True).iterrows():
-                            row_n = i+2; ws3.set_row(row_n, 225) # ✨ ขยายแถวเป็น 300 pixel (225 points)
+                            row_n = i+2; ws3.set_row(row_n, 225) # ✨ 300 pixel
                             ws3.write(row_n, 0, i+1, d_f_15); ws3.write(row_n, 1, r_val['TRIP'], d_f_15); ws3.write(row_n, 2, r_val['STORE NAME'], d_f_15)
                             d_idx = 3
                             for p in fixed_meat_list:
@@ -178,13 +179,13 @@ if file:
                             ws3.write(row_n, d_idx, "", d_f_15); ws3.write(row_n, d_idx+1, "", d_f_15)
                         ws3.set_column('A:A', 6); ws3.set_column('B:B', 10); ws3.set_column('C:C', 35); ws3.set_column('D:ZZ', 10)
 
-                        # --- 4. หน้าจัดกล่อง (ขยายแถวเป็น 225 points = 300 pix) ---
+                        # --- 4. หน้าจัดกล่อง (Row 300px) ---
                         ws4 = wb.add_worksheet("จัดกล่อง"); ws4.set_landscape(); ws4.set_paper(9); ws4.set_margins(0.2, 0.2, 0.2, 0.2)
                         ws4.repeat_rows(0, 0); ws4.freeze_panes(1, 3)
                         cols_box = list(m_box.columns); ws4.write(0, 0, "No.", h_f)
                         for idx, col in enumerate(cols_box): ws4.write(0, idx + 1, col, h_f)
                         for i, r_val in m_box.reset_index(drop=True).iterrows():
-                            row_n = i+1; ws4.set_row(row_n, 225) # ✨ ขยายแถวเป็น 300 pixel (225 points)
+                            row_n = i+1; ws4.set_row(row_n, 225) # ✨ 300 pixel
                             ws4.write(row_n, 0, i+1, d_f_15)
                             for idx, val in enumerate(r_val):
                                 col_name = cols_box[idx]
@@ -193,7 +194,7 @@ if file:
                                 else: ws4.write(row_n, idx+1, display_val, s_f_21 if col_name == 'รวมจำนวน' else d_f_21)
                         ws4.set_column('B:C', 35); ws4.set_column('D:ZZ', 12)
 
-                        # --- 5. Order (รักษาขนาดมาตรฐานไว้) ---
+                        # --- 5. Order ---
                         ws5 = wb.add_worksheet("Order"); ws5.set_portrait(); ws5.set_paper(9)
                         order_cols = list(m_order.columns); ws5.write(0, 0, "No.", h_f)
                         for idx, col in enumerate(order_cols): ws5.write(0, idx + 1, col, h_f)
@@ -205,5 +206,5 @@ if file:
                         ws5.set_column('B:C', 25); ws5.set_column('D:ZZ', 10)
 
                     st.balloons()
-                    st.download_button(label="💖 ดาวน์โหลดไฟล์ (Store Code & Row 300px) 💖", data=output.getvalue(), file_name=f"Queen_Logistics_Ultimate_{datetime.now().strftime('%Y-%m-%d')}.xlsx")
+                    st.download_button(label="💖 ดาวน์โหลดไฟล์ (แก้ไขวงเล็บ STORE CODE ให้แล้วค่ะ) 💖", data=output.getvalue(), file_name=f"Queen_Logistics_Final_Fixed_{datetime.now().strftime('%Y-%m-%d')}.xlsx")
     except Exception as e: st.error(f"อุ๊ย! ผิดพลาดค่ะ: {e}")
