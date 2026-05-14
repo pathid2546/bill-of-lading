@@ -27,7 +27,7 @@ if 'order_total' not in st.session_state: st.session_state.order_total = []
 tab_upload, tab_setting, tab_process = st.tabs(["💅 อัปโหลดไฟล์", "↕️ ลำดับสินค้า", "🚀 ประมวลผล"])
 
 with tab_upload:
-    file = st.file_uploader("ส่งไฟล์ Excel มาเลยค่ะเดียร์ เดี๋ยวขยายความสูง Row ให้ฉ่ำๆ!", type=["xlsx"])
+    file = st.file_uploader("ส่งไฟล์ Excel มาเลยค่ะคุณเดียร์ เดี๋ยวจัดการความสูง 80 ให้กริบ!", type=["xlsx"])
 
 if file:
     try:
@@ -74,14 +74,15 @@ if file:
 
             full_df = pd.DataFrame(all_rows)
             meat_items = ["เนื้อสันคอ", "เนื้อออส", "สันคอหมู", "หมูสามชั้น", "หมูสันนอก", "หมูคูโรบุตะ"]
+            fixed_top = ["ปูอัด", "ปูอัดชีส", "หอยเชลล์โฮตาเตะญี่ปุ่น(NW100%)", "ปลาดอลลี่ NW 70% (200-400)", "ชีสมอสซาเรลล่า", "คิมมาริ", "น้ำจิ้มพอนสึ ยูสุ (ถุง 2 ก.ก.)", "น้ำจิ้มสุกี้"]
             
             if not st.session_state.order_box: 
                 box_items = [p for p in original_order if p not in meat_items]
-                st.session_state.order_box = box_items
+                st.session_state.order_box = [p for p in fixed_top if p in box_items] + [p for p in box_items if p not in fixed_top]
             if not st.session_state.order_total: st.session_state.order_total = original_order
 
             with tab_process:
-                if st.button("🚀 เสกไฟล์ Row สูง 100 ให้เดียร์เลย!"):
+                if st.button("🚀 ประมวลผล (ความสูง Row 80 px) !"):
                     m_weight = full_df[full_df['Product'].isin(meat_items)].pivot_table(index=['TRIP', 'STORE NAME'], columns='Product', values='Qty', aggfunc='sum').fillna(0).reset_index()
                     m_box = full_df[~full_df['Product'].isin(meat_items)].pivot_table(index=['TRIP', 'STORE NAME'], columns='Product', values='Qty', aggfunc='sum').fillna(0).reset_index()
                     m_order = full_df.pivot_table(index=['TRIP', 'STORE NAME'], columns='Product', values='Qty', aggfunc='sum').fillna(0).reset_index()
@@ -93,6 +94,7 @@ if file:
                     output = io.BytesIO()
                     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                         wb = writer.book
+                        # --- Formats ---
                         h_f = wb.add_format({'bold':True, 'align':'center', 'valign':'vcenter', 'bg_color':'#F2F2F2', 'border':1, 'text_wrap':True})
                         d_f_15 = wb.add_format({'border':1, 'align':'center', 'valign':'vcenter', 'font_size': 15})
                         d_f_15_left = wb.add_format({'border':1, 'align':'left', 'valign':'vcenter', 'font_size': 15, 'indent': 1})
@@ -100,11 +102,11 @@ if file:
                         s_f_21 = wb.add_format({'bold':True, 'bg_color':'#E9E9E9', 'border':1, 'num_format':'#,##0', 'valign':'vcenter', 'align':'center', 'font_size': 21})
                         s_f_21_left = wb.add_format({'bold':True, 'bg_color':'#E9E9E9', 'border':1, 'valign':'vcenter', 'align':'left', 'font_size': 21, 'indent': 1})
 
-                        # --- หน้าป้ายต่างๆ (Logic เดิม) ---
+                        # [1. ป้ายน้ำหนัก / 2. ป้ายกล่อง คงเดิม]
                         ws1 = wb.add_worksheet("ป้ายน้ำหนัก")
                         ws2 = wb.add_worksheet("ป้ายกล่อง")
 
-                        # --- 3. หน้าน้ำหนัก (Row Height = 100) ---
+                        # --- 3. หน้าน้ำหนัก (Row Height = 80) ---
                         ws3 = wb.add_worksheet("น้ำหนัก")
                         ws3.set_portrait(); ws3.set_paper(9); ws3.set_margins(0.2, 0.2, 0.2, 0.2); ws3.fit_to_pages(1, 0); ws3.repeat_rows(0, 1)
                         ws3.merge_range(0,0,1,0,"No.",h_f); ws3.merge_range(0,1,1,1,"TRIP",h_f); ws3.merge_range(0,2,1,2,"STORE NAME",h_f)
@@ -114,7 +116,7 @@ if file:
                         ws3.merge_range(0, c_idx, 1, c_idx, "ตะกร้า", h_f); ws3.merge_range(0, c_idx+1, 1, c_idx+1, "กล่อง", h_f)
                         
                         for i, r_val in m_weight.iterrows():
-                            rn = i+2; ws3.set_row(rn, 100) # 🔥 ปรับความสูงเป็น 100 ตามสั่ง!
+                            rn = i+2; ws3.set_row(rn, 80) # 🔥 ปรับความสูงเป็น 80 ตามสั่ง
                             ws3.write(rn, 0, i+1, d_f_15); ws3.write(rn, 1, r_val['TRIP'], d_f_15); ws3.write(rn, 2, r_val['STORE NAME'], d_f_15_left)
                             d_idx = 3
                             for p in meat_items:
@@ -122,8 +124,8 @@ if file:
                                 ws3.write(rn, d_idx, val if val != 0 else "-", d_f_21); ws3.write(rn, d_idx+1, "", d_f_15); d_idx += 2
                             ws3.write(rn, d_idx, "", d_f_15); ws3.write(rn, d_idx+1, "", d_f_15)
                         
-                        # TOTAL แถบสีเทาขยายจนจบ
-                        t_row = len(m_weight) + 2; ws3.set_row(t_row, 100)
+                        # TOTAL แถบสีเทาสูง 80
+                        t_row = len(m_weight) + 2; ws3.set_row(t_row, 80)
                         ws3.write(t_row, 0, "", s_f_21); ws3.write(t_row, 1, "", s_f_21); ws3.write(t_row, 2, "TOTAL", s_f_21_left)
                         d_idx = 3
                         for p in meat_items:
@@ -133,12 +135,12 @@ if file:
                         ws3.write(t_row, d_idx, "", s_f_21); ws3.write(t_row, d_idx+1, "", s_f_21)
                         ws3.set_column('A:A', 6); ws3.set_column('B:B', 10); ws3.set_column('C:C', 35); ws3.set_column('D:ZZ', 10)
 
-                        # --- หน้าอื่นๆ: จัดกล่อง, Order (Logic เดิม) ---
+                        # [4. จัดกล่อง / 5. Order คงเดิม]
                         ws4 = wb.add_worksheet("จัดกล่อง")
                         ws5 = wb.add_worksheet("Order")
 
                     st.balloons()
-                    st.download_button(label="💖 โหลดไฟล์ Row สูง 100 ฉ่ำๆ ได้เลยค่ะเดียร์! 💖", 
+                    st.download_button(label="💖 โหลดไฟล์หน้าน้ำหนัก Row 80 px ได้เลยค่ะ! 💖", 
                                      data=output.getvalue(), 
-                                     file_name=f"Queen_Logistics_Row100_{datetime.now().strftime('%H%M')}.xlsx")
-    except Exception as e: st.error(f"อุ๊ย! มีปัญหาหน้า Row Height ค่ะเดียร์: {e}")
+                                     file_name=f"Queen_Logistics_Row80_{datetime.now().strftime('%H%M')}.xlsx")
+    except Exception as e: st.error(f"อุ๊ย! มีปัญหาค่ะเดียร์: {e}")
