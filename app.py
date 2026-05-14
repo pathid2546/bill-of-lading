@@ -22,7 +22,7 @@ def sassy_css():
     """, unsafe_allow_html=True)
 
 sassy_css()
-st.markdown("<h1>Route BNN by น้องเดียร์ 💅</h1>", unsafe_allow_html=True)
+st.markdown("<h1>Queen Logistics Center 💅</h1>", unsafe_allow_html=True)
 
 if 'order_box' not in st.session_state: st.session_state.order_box = []
 if 'order_total' not in st.session_state: st.session_state.order_total = []
@@ -30,7 +30,7 @@ if 'order_total' not in st.session_state: st.session_state.order_total = []
 tab_upload, tab_setting, tab_process = st.tabs(["💅 อัปโหลดไฟล์", "↕️ ลำดับสินค้า", "🚀 ประมวลผล"])
 
 with tab_upload:
-    file = st.file_uploader("โยนไฟล์ Excel มาให้ไวเลยค่ะคุณพี่", type=["xlsx"])
+    file = st.file_uploader("โยนไฟล์ Excel มาให้ไวเลยค่ะคุณเดียร์", type=["xlsx"])
 
 if file:
     try:
@@ -88,29 +88,40 @@ if file:
                         wb = writer.book; header_bg = '#F2F2F2'
                         h_f = wb.add_format({'bold':True, 'align':'center', 'valign':'vcenter', 'bg_color':header_bg, 'border':1, 'text_wrap':True})
                         
-                        # --- 📐 ปรับขนาดตามคำขอ: ข้อความ 15 / ตัวเลข 21 ---
                         d_f_15 = wb.add_format({'border':1, 'align':'center', 'valign':'vcenter', 'font_size': 15})
                         d_f_21 = wb.add_format({'border':1, 'align':'center', 'valign':'vcenter', 'font_size': 21, 'bold': True})
                         s_f_21 = wb.add_format({'bold':True, 'bg_color':'#E9E9E9', 'border':1, 'num_format':'#,##0', 'valign':'vcenter', 'align':'center', 'font_size': 21})
                         
                         fixed_meat_list = ["เนื้อสันคอ", "เนื้อออส", "หมูสันคอ", "หมูสามชั้น", "หมูสันนอก", "หมูคูโรบุตะ"]
 
+                        # --- ✨ อัปเกรดฟังก์ชันดึงค่าให้ฉลาดขึ้นเพื่อคุณเดียร์ค่ะ ---
                         def get_val_by_kw(row, target_name):
                             if target_name in row: return row[target_name]
+                            
+                            # 1. เคสพิเศษ: สันคอหมู <-> หมูสันคอ
+                            if target_name == "หมูสันคอ":
+                                for col in row.index:
+                                    if "สันคอ" in str(col) and "หมู" in str(col): return row[col]
+                            
+                            # 2. เคสพิเศษ: คูโรบุตะ
                             if target_name == "หมูคูโรบุตะ":
                                 kuro_kws = ["คุโร", "คูโร", "บูตะ", "บุตะ", "Kuro"]
                                 for col in row.index:
                                     if all(k in str(col) for k in ["หมู", "สามชั้น"]) and any(k in str(col) for k in kuro_kws):
                                         return row[col]
+                            
+                            # 3. เคสพิเศษ: เนื้อออส
                             if target_name == "เนื้อออส":
                                 aus_kws = ["ออส", "Aus"]
                                 for col in row.index:
                                     if any(k in str(col) for k in aus_kws): return row[col]
+                            
+                            # 4. เคสทั่วไป: ลบ Space แล้วหา
                             for col in row.index:
                                 if str(target_name).replace(" ","") == str(col).replace(" ",""): return row[col]
                             return 0
 
-                        # --- 1. ป้ายน้ำหนัก (Layout เดิม) ---
+                        # --- 1. ป้ายน้ำหนัก ---
                         ws1 = wb.add_worksheet("ป้ายน้ำหนัก"); ws1.set_landscape(); ws1.set_margins(0.2, 0.2, 0.2, 0.2); ws1.set_paper(9)
                         f_bnn = wb.add_format({'bold':True, 'size':30, 'border':2, 'align':'center', 'valign':'vcenter', 'bg_color':header_bg})
                         f_trip_v = wb.add_format({'bold':True, 'size':32, 'border':2, 'align':'center', 'valign':'vcenter'})
@@ -144,7 +155,7 @@ if file:
                             b_row += 4; breaks_b.append(b_row)
                         ws2.set_h_pagebreaks(breaks_b)
 
-                        # --- 3. หน้าน้ำหนัก (Text 15, Number 21) ---
+                        # --- 3. หน้าน้ำหนัก ---
                         ws3 = wb.add_worksheet("น้ำหนัก"); ws3.set_portrait(); ws3.set_paper(9); ws3.set_margins(0.2, 0.2, 0.2, 0.2); ws3.fit_to_pages(1, 0)
                         ws3.repeat_rows(0, 1); ws3.freeze_panes(2, 3)
                         ws3.merge_range(0,0,1,0,"No.",h_f); ws3.merge_range(0,1,1,1,"TRIP",h_f); ws3.merge_range(0,2,1,2,"STORE NAME",h_f)
@@ -168,7 +179,7 @@ if file:
                             ws3.write(t_row, d_idx, total_sum if total_sum != 0 else "-", s_f_21); ws3.write(t_row, d_idx+1, "", s_f_21); d_idx += 2
                         ws3.set_column('A:A', 6); ws3.set_column('B:B', 10); ws3.set_column('C:C', 25); ws3.set_column('D:ZZ', 10)
 
-                        # --- 4. หน้าจัดกล่อง (Text 15, Number 21) ---
+                        # --- 4. หน้าจัดกล่อง ---
                         ws4 = wb.add_worksheet("จัดกล่อง"); ws4.set_landscape(); ws4.set_paper(9); ws4.set_margins(0.2, 0.2, 0.2, 0.2); ws4.fit_to_pages(1, 0)
                         ws4.repeat_rows(0, 0); ws4.freeze_panes(1, 3)
                         cols_box = list(m_box.columns); ws4.write(0, 0, "No.", h_f)
@@ -202,5 +213,5 @@ if file:
                         ws5.set_column('B:C', 18); ws5.set_column('D:ZZ', 9)
 
                     st.balloons()
-                    st.download_button(label="💖 ดาวน์โหลดไฟล์ (ข้อความ 15 / ตัวเลข 21) 💖", data=output.getvalue(), file_name=f"Queen_Report_CustomFont_{datetime.now().strftime('%Y-%m-%d')}.xlsx")
+                    st.download_button(label="💖 ดาวน์โหลดไฟล์ (แก้เรื่องสันคอหมูให้แล้วค่ะ) 💖", data=output.getvalue(), file_name=f"Queen_Report_Fixed_{datetime.now().strftime('%Y-%m-%d')}.xlsx")
     except Exception as e: st.error(f"อุ๊ย! ผิดพลาดค่ะ: {e}")
