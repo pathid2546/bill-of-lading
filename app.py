@@ -34,10 +34,8 @@ with tab_upload:
 
 if file:
     try:
-        # อ่าน Route และทำ Lookup (ดึงทั้งรหัสสาขาและชื่อสาย)
         route_df = pd.read_excel(file, sheet_name='Route', header=None)
         route_lookup = {str(r[0]).strip(): str(r[2]).strip() for _, r in route_df.iterrows() if pd.notna(r[0])}
-        # เพิ่ม Lookup สำหรับตัวย่อสาขา
         short_name_lookup = {str(r[0]).strip(): str(r[0]).strip() for _, r in route_df.iterrows() if pd.notna(r[0])}
         
         xls = pd.ExcelFile(file); main_sheet = xls.sheet_names[0]
@@ -63,8 +61,6 @@ if file:
                         if qty > 0:
                             col_idx = list(df_clean.columns).index(col_name)
                             current_store_code = str(store_codes_row[col_idx]).strip()
-                            
-                            # ✨ สร้างชื่อร้านแบบมีตัวย่อต่อท้าย (สาขา)
                             short_code = short_name_lookup.get(current_store_code, "")
                             display_store_name = f"{col_name} ( {short_code} )" if short_code else col_name
                             
@@ -108,6 +104,10 @@ if file:
                         d_f_21 = wb.add_format({'border':1, 'align':'center', 'valign':'vcenter', 'font_size': 21, 'bold': True})
                         s_f_21 = wb.add_format({'bold':True, 'bg_color':'#E9E9E9', 'border':1, 'num_format':'#,##0', 'valign':'vcenter', 'align':'center', 'font_size': 21})
                         
+                        # ✨ ฟอร์แมตใหม่สำหรับ Store Name ชิดซ้าย
+                        d_f_15_left = wb.add_format({'border':1, 'align':'left', 'valign':'vcenter', 'font_size': 15, 'indent': 1})
+                        f_store_v_left = wb.add_format({'bold':True, 'size':24, 'border':1, 'align':'left', 'valign':'vcenter', 'indent': 1})
+                        
                         fixed_meat_list = ["เนื้อสันคอ", "เนื้อออส", "หมูสันคอ", "หมูสามชั้น", "หมูสันนอก", "หมูคูโรบุตะ"]
 
                         def get_val_by_kw(row, target_name):
@@ -127,22 +127,21 @@ if file:
                                 if str(target_name).replace(" ","") == str(col).replace(" ",""): return row[col]
                             return 0
 
-                        # --- Sheets (ป้ายต่างๆ) ---
-                        # (เหมือนเดิมเพื่อความเสถียรค่ะ)
+                        # --- 1. ป้ายน้ำหนัก ---
                         ws1 = wb.add_worksheet("ป้ายน้ำหนัก")
                         ws1.set_landscape(); ws1.set_margins(0.2, 0.2, 0.2, 0.2); ws1.set_paper(9)
                         f_bnn = wb.add_format({'bold':True, 'size':30, 'border':2, 'align':'center', 'valign':'vcenter', 'bg_color':header_bg})
                         f_trip_v = wb.add_format({'bold':True, 'size':32, 'border':2, 'align':'center', 'valign':'vcenter'})
                         f_unit_v = wb.add_format({'bold':True, 'size':18, 'border':1, 'align':'center', 'valign':'vcenter'})
                         f_prod_v = wb.add_format({'bold':True, 'size':22, 'border':1, 'valign':'vcenter', 'indent':1})
-                        f_store_v = wb.add_format({'bold':True, 'size':24, 'border':1, 'align':'center', 'valign':'vcenter'})
                         ws1.set_column('A:A', 38); ws1.set_column('B:E', 16)
                         row_idx = 0; breaks_w = []
                         for _, row_s in m_weight.iterrows():
                             ws1.merge_range(row_idx, 0, row_idx, 2, "BNN (สุกี้ตี๋น้อย)", f_bnn)
                             ws1.merge_range(row_idx, 3, row_idx, 4, row_s['TRIP'], f_trip_v)
                             ws1.set_row(row_idx, 65); ws1.write(row_idx + 1, 0, "STORE:", f_unit_v)
-                            ws1.merge_range(row_idx + 1, 1, row_idx + 1, 4, row_s['STORE NAME'], f_store_v)
+                            # ✨ ป้ายน้ำหนัก: Store Name ชิดซ้าย
+                            ws1.merge_range(row_idx + 1, 1, row_idx + 1, 4, row_s['STORE NAME'], f_store_v_left)
                             ws1.set_row(row_idx + 1, 55)
                             for i, item in enumerate(fixed_meat_list):
                                 r = row_idx + 2 + i
@@ -153,6 +152,7 @@ if file:
                             row_idx += 9; breaks_w.append(row_idx)
                         ws1.set_h_pagebreaks(breaks_w)
 
+                        # --- 2. ป้ายกล่อง (ตัวใหญ่สุด) ---
                         ws2 = wb.add_worksheet("ป้ายกล่อง")
                         ws2.set_landscape(); ws2.set_margins(0.2, 0.2, 0.2, 0.2); ws2.set_paper(9)
                         f_label_big = wb.add_format({'bold':True, 'size':40, 'border':1, 'align':'center', 'valign':'vcenter'})
@@ -160,7 +160,8 @@ if file:
                         ws2.set_column('A:A', 50); ws2.set_column('B:B', 60); b_row = 0; breaks_b = []
                         for _, row_b in m_box.iterrows():
                             ws2.merge_range(b_row, 0, b_row, 1, "BNN (สุกี้ตี๋น้อย)", wb.add_format({'bold':True, 'size':60, 'border':2, 'align':'center', 'valign':'vcenter', 'bg_color':header_bg}))
-                            ws2.write(b_row+1, 0, "STORE NAME", f_label_big); ws2.write(b_row+1, 1, row_b['STORE NAME'], wb.add_format({'bold':True, 'size':35, 'border':1, 'align':'center', 'valign':'vcenter', 'text_wrap':True}))
+                            # ✨ ป้ายกล่อง: Store Name ชิดซ้าย
+                            ws2.write(b_row+1, 0, "STORE NAME", f_label_big); ws2.write(b_row+1, 1, row_b['STORE NAME'], wb.add_format({'bold':True, 'size':35, 'border':1, 'align':'left', 'valign':'vcenter', 'text_wrap':True, 'indent':1}))
                             ws2.write(b_row+2, 0, "จำนวนกล่อง", f_label_big); ws2.write(b_row+2, 1, row_b['รวมจำนวน'] if row_b['รวมจำนวน'] != 0 else "-", f_qty_big)
                             ws2.write(b_row+3, 0, "TRIP NO.", f_label_big); ws2.write(b_row+3, 1, row_b['TRIP'], wb.add_format({'bold':True, 'size':70, 'border':1, 'align':'center', 'valign':'vcenter'}))
                             ws2.set_row(b_row, 120); ws2.set_row(b_row+1, 100); ws2.set_row(b_row+2, 130); ws2.set_row(b_row+3, 120)
@@ -177,16 +178,13 @@ if file:
                         ws3.merge_range(0, c_idx, 1, c_idx, "ตะกร้า", h_f); ws3.merge_range(0, c_idx+1, 1, c_idx+1, "กล่อง", h_f)
                         for i, r_val in m_weight.reset_index(drop=True).iterrows():
                             row_n = i+2; ws3.set_row(row_n, 35) 
-                            ws3.write(row_n, 0, i+1, d_f_15); ws3.write(row_n, 1, r_val['TRIP'], d_f_15); ws3.write(row_n, 2, r_val['STORE NAME'], d_f_15)
+                            ws3.write(row_n, 0, i+1, d_f_15); ws3.write(row_n, 1, r_val['TRIP'], d_f_15)
+                            # ✨ หน้าน้ำหนัก: Store Name ชิดซ้าย
+                            ws3.write(row_n, 2, r_val['STORE NAME'], d_f_15_left)
                             d_idx = 3
                             for p in fixed_meat_list:
                                 val = get_val_by_kw(r_val, p)
                                 ws3.write(row_n, d_idx, val if val != 0 else "-", d_f_21); ws3.write(row_n, d_idx+1, "", d_f_15); d_idx += 2
-                        t_row = len(m_weight) + 2; ws3.set_row(t_row, 35); ws3.write(t_row, 2, "TOTAL", s_f_21)
-                        d_idx = 3
-                        for p in fixed_meat_list:
-                            total_sum = m_weight.apply(lambda r: get_val_by_kw(r, p), axis=1).sum()
-                            ws3.write(t_row, d_idx, total_sum if total_sum != 0 else "-", s_f_21); ws3.write(t_row, d_idx+1, "", s_f_21); d_idx += 2
                         ws3.set_column('A:A', 6); ws3.set_column('B:B', 10); ws3.set_column('C:C', 30); ws3.set_column('D:ZZ', 10)
 
                         # --- 4. หน้าจัดกล่อง ---
@@ -199,14 +197,12 @@ if file:
                             ws4.write(row_n, 0, i+1, d_f_15)
                             for idx, val in enumerate(r_val):
                                 col_name = cols_box[idx]
-                                if col_name in ['TRIP', 'STORE NAME']: ws4.write(row_n, idx+1, val, d_f_15)
+                                if col_name == 'TRIP': ws4.write(row_n, idx+1, val, d_f_15)
+                                # ✨ หน้าจัดกล่อง: Store Name ชิดซ้าย
+                                elif col_name == 'STORE NAME': ws4.write(row_n, idx+1, val, d_f_15_left)
                                 else:
                                     display_val = val if val != 0 else "-"
                                     ws4.write(row_n, idx+1, display_val, s_f_21 if col_name == 'รวมจำนวน' else d_f_21)
-                        l_row = len(m_box) + 1; ws4.set_row(l_row, 35); ws4.write(l_row, 2, "TOTAL", s_f_21)
-                        for idx, col in enumerate(cols_box):
-                            if col not in ['TRIP', 'STORE NAME']:
-                                total_val = m_box[col].sum(); ws4.write(l_row, idx + 1, total_val if total_val != 0 else "-", s_f_21)
                         ws4.set_column('B:B', 10); ws4.set_column('C:C', 30); ws4.set_column('D:ZZ', 11)
 
                         # --- 5. หน้า Order ---
@@ -217,10 +213,15 @@ if file:
                         for i, r_val in m_order.reset_index(drop=True).iterrows():
                             ws5.write(i+1, 0, i+1, d_f_15)
                             for idx, val in enumerate(r_val):
-                                display_val = val if val != 0 else "-" if order_cols[idx] not in ['TRIP', 'STORE NAME'] else val
-                                ws5.write(i+1, idx+1, display_val, d_f_15)
+                                col_name = order_cols[idx]
+                                # ✨ หน้า Order: Store Name ชิดซ้าย
+                                if col_name == 'STORE NAME':
+                                    ws5.write(i+1, idx+1, val, d_f_15_left)
+                                else:
+                                    display_val = val if val != 0 else "-" if col_name not in ['TRIP', 'STORE NAME'] else val
+                                    ws5.write(i+1, idx+1, display_val, d_f_15)
                         ws5.set_column('B:B', 10); ws5.set_column('C:C', 30); ws5.set_column('D:ZZ', 9)
 
                     st.balloons()
-                    st.download_button(label="💖 ดาวน์โหลดไฟล์ (มีตัวย่อสาขาแล้วค่ะคุณเดียร์!) 💖", data=output.getvalue(), file_name=f"Queen_Fixed_StoreCode_{datetime.now().strftime('%Y-%m-%d')}.xlsx")
+                    st.download_button(label="💖 ดาวน์โหลดไฟล์ (Store Name ชิดซ้ายแล้วค่ะ!) 💖", data=output.getvalue(), file_name=f"Queen_Final_LeftAlign_{datetime.now().strftime('%Y-%m-%d')}.xlsx")
     except Exception as e: st.error(f"อุ๊ย! ผิดพลาดค่ะ: {e}")
