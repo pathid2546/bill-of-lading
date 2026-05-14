@@ -34,7 +34,6 @@ with tab_upload:
 
 if file:
     try:
-        # ดึงข้อมูล Route
         route_df = pd.read_excel(file, sheet_name='Route', header=None)
         route_lookup = {str(r[0]).strip(): str(r[2]).strip() for _, r in route_df.iterrows() if pd.notna(r[0])}
         short_name_lookup = {str(r[0]).strip(): str(r[0]).strip() for _, r in route_df.iterrows() if pd.notna(r[0])}
@@ -78,8 +77,9 @@ if file:
 
             full_df = pd.DataFrame(all_rows)
             
-            # --- Logic แยกสินค้าหน้า "น้ำหนัก" ---
-            meat_items = ["เนื้อสันคอ", "เนื้อออส", "หมูสันคอ", "สันคอหมู", "หมูสามชั้น", "หมูสันนอก", "หมูคูโรบุตะ"]
+            # --- 🎯 ปรับรายการสินค้าหน้า "น้ำหนัก" ให้ตรงตามข้อมูลดิบเดียร์เป๊ะๆ ---
+            # ตัด "หมูสันคอ" ออก เหลือแค่ "สันคอหมู" ตามไฟล์ดิบ
+            meat_items = ["เนื้อสันคอ", "เนื้อออส", "สันคอหมู", "หมูสามชั้น", "หมูสันนอก", "หมูคูโรบุตะ"]
             fixed_top = ["ปูอัด", "ปูอัดชีส", "หอยเชลล์โฮตาเตะญี่ปุ่น(NW100%)", "ปลาดอลลี่ NW 70% (200-400)", "ชีสมอสซาเรลล่า", "คิมมาริ", "น้ำจิ้มพอนสึ ยูสุ (ถุง 2 ก.ก.)", "น้ำจิ้มสุกี้"]
             
             if not st.session_state.order_box: 
@@ -93,8 +93,7 @@ if file:
                 with c2: st.markdown("📋 **จัดลำดับสินค้า (หน้า Order)**"); st.session_state.order_total = sort_items(st.session_state.order_total, key="total")
 
             with tab_process:
-                if st.button("🚀 เสกไฟล์แบบจัดเต็ม (ครบทุกหน้า) !"):
-                    # เตรียม DataFrames
+                if st.button("🚀 เสกไฟล์ 'สันคอหมู' แบบตีกรอบเข้มให้เดียร์!"):
                     m_weight = full_df[full_df['Product'].isin(meat_items)].pivot_table(index=['TRIP', 'STORE NAME'], columns='Product', values='Qty', aggfunc='sum').fillna(0).reset_index()
                     m_box = full_df[~full_df['Product'].isin(meat_items)].pivot_table(index=['TRIP', 'STORE NAME'], columns='Product', values='Qty', aggfunc='sum').fillna(0).reset_index()
                     m_order = full_df.pivot_table(index=['TRIP', 'STORE NAME'], columns='Product', values='Qty', aggfunc='sum').fillna(0).reset_index()
@@ -114,7 +113,7 @@ if file:
                         s_f_21 = wb.add_format({'bold':True, 'bg_color':'#E9E9E9', 'border':1, 'num_format':'#,##0', 'valign':'vcenter', 'align':'center', 'font_size': 21})
                         s_f_21_left = wb.add_format({'bold':True, 'bg_color':'#E9E9E9', 'border':1, 'valign':'vcenter', 'align':'left', 'font_size': 21, 'indent': 1})
 
-                        # --- 1. หน้าป้ายน้ำหนัก (Label Weight) ---
+                        # --- 1. หน้าป้ายน้ำหนัก (ตีกรอบเข้ม + สันคอหมู) ---
                         ws1 = wb.add_worksheet("ป้ายน้ำหนัก")
                         ws1.set_landscape(); ws1.set_margins(0.2, 0.2, 0.2, 0.2); ws1.set_paper(9)
                         f_bnn = wb.add_format({'bold':True, 'size':30, 'border':2, 'align':'center', 'valign':'vcenter', 'bg_color':'#F2F2F2'})
@@ -137,7 +136,7 @@ if file:
                                 ws1.write(r, 2, "KG.", f_unit_v); ws1.write(r, 3, "", f_unit_v)
                                 ws1.write(r, 4, "กล่อง" if "ออส" in item or "คูโร" in item else "ตะกร้า", f_unit_v)
                                 ws1.set_row(r, 62)
-                            row_idx += 10; breaks_w.append(row_idx)
+                            row_idx += 9; breaks_w.append(row_idx) # ปรับระยะบรรทัด
                         ws1.set_h_pagebreaks(breaks_w)
 
                         # --- 2. หน้าป้ายกล่อง (Label Box) ---
@@ -157,7 +156,7 @@ if file:
                             b_row += 4; breaks_b.append(b_row)
                         ws2.set_h_pagebreaks(breaks_b)
 
-                        # --- 3. หน้าน้ำหนัก (Weight Sheet) ---
+                        # --- 3. หน้าน้ำหนัก (ตีกรอบเข้ม + สันคอหมู) ---
                         ws3 = wb.add_worksheet("น้ำหนัก")
                         ws3.set_portrait(); ws3.set_paper(9); ws3.set_margins(0.2, 0.2, 0.2, 0.2); ws3.fit_to_pages(1, 0); ws3.repeat_rows(0, 1)
                         ws3.merge_range(0,0,1,0,"No.",h_f); ws3.merge_range(0,1,1,1,"TRIP",h_f); ws3.merge_range(0,2,1,2,"STORE NAME",h_f)
@@ -200,7 +199,7 @@ if file:
                                 total = m_box[col].sum(); ws4.write(l_row, idx + 1, total if total != 0 else "-", s_f_21)
                         ws4.set_column('B:B', 10); ws4.set_column('C:C', 35); ws4.set_column('D:ZZ', 12)
 
-                        # --- 5. หน้า Order (Summary Sheet) ---
+                        # --- 5. หน้า Order ---
                         ws5 = wb.add_worksheet("Order")
                         ws5.set_landscape(); ws5.set_paper(9); ws5.fit_to_pages(1, 0); ws5.repeat_rows(0, 0)
                         cols_o = list(m_order.columns); ws5.write(0, 0, "No.", h_f)
@@ -214,7 +213,7 @@ if file:
                         ws5.set_column('B:B', 10); ws5.set_column('C:C', 35); ws5.set_column('D:ZZ', 10)
 
                     st.balloons()
-                    st.download_button(label="💖 ดาวน์โหลดไฟล์ตัวจบ (มาครบทุกหน้าแล้วค่ะเดียร์!) 💖", 
+                    st.download_button(label="💖 โหลดไฟล์ใหม่ 'สันคอหมู' ครบทุกหน้าแล้วค่ะเดียร์! 💖", 
                                      data=output.getvalue(), 
-                                     file_name=f"Queen_Logistics_Full_Set_{datetime.now().strftime('%H%M')}.xlsx")
+                                     file_name=f"Queen_Logistics_Final_Fixed_{datetime.now().strftime('%H%M')}.xlsx")
     except Exception as e: st.error(f"อุ๊ย! เดียร์คะ มีข้อผิดพลาด: {e}")
