@@ -52,6 +52,10 @@ if file:
 
             for _, row in df_clean.iterrows():
                 product = str(row.get('Description', '')).strip()
+                
+                # 🔥 แก้ปัญหา (แช่แข็ง) ตรงนี้! ตัดคำทิ้งไปเลยให้มันอ่านเป็นสินค้าเดียวกัน
+                product = product.replace('(แช่แข็ง)', '').strip()
+                
                 if product in ['', 'nan', '0', '0.0'] or 'Description' in product: continue
                 if product not in original_order: original_order.append(product)
                 
@@ -74,13 +78,13 @@ if file:
 
             full_df = pd.DataFrame(all_rows)
             
-            # 🔥 แก้ไขตรงนี้: เปลี่ยนจาก "เนื้อออส" เป็น "เนื้อวัวออสเตรเลีย" ให้ตรงกับไฟล์ดิบ
-            meat_items = ["เนื้อสันคอ", "เนื้อวัวออสเตรเลีย", "สันคอหมู", "หมูสามชั้น", "หมูสันนอก", "หมูคูโรบุตะ"]
+            # 🔥 เพิ่ม "เนื้อวัวสันคอ" ตามรีเควส
+            meat_items = ["เนื้อวัวสันคอ", "เนื้อสันคอ", "เนื้อวัวออสเตรเลีย", "สันคอหมู", "หมูสามชั้น", "หมูสันนอก", "หมูคูโรบุตะ"]
             fixed_top = ["ปูอัด", "ปูอัดชีส", "หอยเชลล์โฮตาเตะญี่ปุ่น(NW100%)", "ปลาดอลลี่ NW 70% (200-400)", "ชีสมอสซาเรลล่า", "คิมมาริ", "น้ำจิ้มพอนสึ ยูสุ (ถุง 2 ก.ก.)", "น้ำจิ้มสุกี้"]
             
             # --- ระบบเรียงลำดับสินค้า (หน้าจัดกล่อง และหน้า Order) ---
             if not st.session_state.order_box: 
-                # ดึงรายการที่ไม่ใช่กลุ่ม meat_items (ทำให้ "เนื้อวัวออสเตรเลีย" ไม่ไปโผล่ในหน้าจัดกล่องแน่นอน)
+                # ดึงรายการที่ไม่ใช่กลุ่ม meat_items
                 box_items = [p for p in original_order if p not in meat_items]
                 st.session_state.order_box = [p for p in fixed_top if p in box_items] + [p for p in box_items if p not in fixed_top]
             if not st.session_state.order_total: st.session_state.order_total = original_order
@@ -91,21 +95,20 @@ if file:
                 with c2: st.markdown("📋 **จัดลำดับหน้า Order**"); st.session_state.order_total = sort_items(st.session_state.order_total, key="total")
 
             with tab_process:
-                if st.button("🚀 ประมวลผลระบบครบจบ (แก้ไขชื่อเนื้อออสเรียบร้อย)"):
+                if st.button("🚀 ประมวลผลระบบครบจบ (แก้ไขแช่แข็ง & เพิ่มเนื้อวัวสันคอแล้ว)"):
                     # 1. ข้อมูลหน้าน้ำหนัก
                     m_weight = full_df[full_df['Product'].isin(meat_items)].pivot_table(index=['TRIP', 'STORE NAME'], columns='Product', values='Qty', aggfunc='sum').fillna(0).reset_index()
-                    # ตรวจสอบว่าคอลัมน์มาครบตามที่กำหนดใน meat_items ไหม ถ้าไม่มีให้สร้างคอลัมน์ว่างรอไว้
                     for col in meat_items:
                         if col not in m_weight.columns:
                             m_weight[col] = 0.0
                     
-                    # 2. ข้อมูลหน้าจัดกล่อง (ใช้ลำดับจาก session_state ซึ่งคัดเนื้อออกไปแล้ว)
+                    # 2. ข้อมูลหน้าจัดกล่อง
                     m_box = full_df[~full_df['Product'].isin(meat_items)].pivot_table(index=['TRIP', 'STORE NAME'], columns='Product', values='Qty', aggfunc='sum').fillna(0).reset_index()
                     prods_box_list = [p for p in st.session_state.order_box if p in m_box.columns]
                     m_box = m_box[['TRIP', 'STORE NAME'] + prods_box_list].sort_values(['TRIP', 'STORE NAME'])
                     m_box['รวมจำนวน'] = m_box[prods_box_list].sum(axis=1)
                     
-                    # 3. ข้อมูลหน้า Order (ใช้ลำดับจาก session_state)
+                    # 3. ข้อมูลหน้า Order
                     m_order = full_df.pivot_table(index=['TRIP', 'STORE NAME'], columns='Product', values='Qty', aggfunc='sum').fillna(0).reset_index()
                     prods_order_list = [p for p in st.session_state.order_total if p in m_order.columns]
                     m_order = m_order[['TRIP', 'STORE NAME'] + prods_order_list].sort_values(['TRIP', 'STORE NAME'])
@@ -139,13 +142,12 @@ if file:
                             ws1.set_row(row_idx + 1, 55)
                             for i, item in enumerate(meat_items):
                                 r = row_idx + 2 + i
-                                # เปลี่ยนการแสดงผลป้ายน้ำหนักให้แสดงเป็นคำสั้นหรือตามต้องการ (ในที่นี้แสดงตาม meat_items)
                                 display_item = "เนื้อออส" if item == "เนื้อวัวออสเตรเลีย" else item
                                 ws1.write(r, 0, display_item, f_prod_v); ws1.write(r, 1, "", f_unit_v)
                                 ws1.write(r, 2, "KG.", f_unit_v); ws1.write(r, 3, "", f_unit_v)
-                                ws1.write(r, 4, "กล่อง" if "ออส" in item or "คูโร" in item else "ตะกร้า", f_unit_v)
+                                ws1.write(r, 4, "กล่อง" if "ออส" in item or "คูโร" in item or "เนื้อวัว" in item else "ตะกร้า", f_unit_v)
                                 ws1.set_row(r, 62)
-                            row_idx += 9; breaks_w.append(row_idx)
+                            row_idx += len(meat_items) + 2; breaks_w.append(row_idx)
                         ws1.set_h_pagebreaks(breaks_w)
 
                         # [2. ป้ายกล่อง]
@@ -164,7 +166,7 @@ if file:
                             b_row += 4; breaks_b.append(b_row)
                         ws2.set_h_pagebreaks(breaks_b)
 
-                        # --- 3. หน้าน้ำหนัก (เปลี่ยนหัวข้อเป็น เนื้อวัวออสเตรเลีย + Row 80) ---
+                        # --- 3. หน้าน้ำหนัก ---
                         ws3 = wb.add_worksheet("น้ำหนัก")
                         ws3.set_portrait(); ws3.set_paper(9); ws3.set_margins(0.2, 0.2, 0.2, 0.2); ws3.fit_to_pages(1, 0); ws3.repeat_rows(0, 1)
                         ws3.merge_range(0,0,1,0,"No.",h_f); ws3.merge_range(0,1,1,1,"TRIP",h_f); ws3.merge_range(0,2,1,2,"STORE NAME",h_f)
@@ -174,7 +176,7 @@ if file:
                         ws3.merge_range(0, c_idx, 1, c_idx, "ตะกร้า", h_f); ws3.merge_range(0, c_idx+1, 1, c_idx+1, "กล่อง", h_f)
                         
                         for i, r_val in m_weight.iterrows():
-                            rn = i+2; ws3.set_row(rn, 80) # Row Height 80
+                            rn = i+2; ws3.set_row(rn, 80)
                             ws3.write(rn, 0, i+1, d_f_15); ws3.write(rn, 1, r_val['TRIP'], d_f_15); ws3.write(rn, 2, r_val['STORE NAME'], d_f_15_left)
                             d_idx = 3
                             for p in meat_items:
@@ -182,7 +184,6 @@ if file:
                                 ws3.write(rn, d_idx, val if val != 0 else "-", d_f_21); ws3.write(rn, d_idx+1, "", d_f_15); d_idx += 2
                             ws3.write(rn, d_idx, "", d_f_15); ws3.write(rn, d_idx+1, "", d_f_15)
                         
-                        # แถว TOTAL (สีเทาลากยันขวา)
                         t_row = len(m_weight) + 2; ws3.set_row(t_row, 80)
                         ws3.write(t_row, 0, "", s_f_21); ws3.write(t_row, 1, "", s_f_21); ws3.write(t_row, 2, "TOTAL", s_f_21_left)
                         d_idx = 3
@@ -193,7 +194,7 @@ if file:
                         ws3.write(t_row, d_idx, "", s_f_21); ws3.write(t_row, d_idx+1, "", s_f_21)
                         ws3.set_column('A:A', 6); ws3.set_column('B:B', 10); ws3.set_column('C:C', 35); ws3.set_column('D:ZZ', 10)
 
-                        # --- 4. หน้าจัดกล่อง (ไม่มี เนื้อวัวออสเตรเลีย แน่นอน) ---
+                        # --- 4. หน้าจัดกล่อง ---
                         ws4 = wb.add_worksheet("จัดกล่อง")
                         ws4.set_landscape(); ws4.set_paper(9); ws4.set_margins(0.2, 0.2, 0.2, 0.2); ws4.fit_to_pages(1, 0)
                         cols_b = list(m_box.columns); ws4.write(0, 0, "No.", h_f)
@@ -205,7 +206,6 @@ if file:
                                 if col == 'TRIP': ws4.write(rn, idx+1, val, d_f_15)
                                 elif col == 'STORE NAME': ws4.write(rn, idx+1, val, d_f_15_left)
                                 else: ws4.write(rn, idx+1, (val if val != 0 else "-"), s_f_21 if col == 'รวมจำนวน' else d_f_21)
-                        # TOTAL หน้าจัดกล่อง
                         l_row_b = len(m_box) + 1; ws4.set_row(l_row_b, 35); ws4.write(l_row_b, 0, "", s_f_21); ws4.write(l_row_b, 1, "", s_f_21); ws4.write(l_row_b, 2, "TOTAL", s_f_21_left)
                         for idx, col in enumerate(cols_b):
                             if col not in ['TRIP', 'STORE NAME']:
@@ -226,7 +226,7 @@ if file:
                         ws5.set_column('B:B', 10); ws5.set_column('C:C', 35); ws5.set_column('D:ZZ', 10)
 
                     st.balloons()
-                    st.download_button(label="💖 โหลดไฟล์แก้ชื่อเนื้อออส + ลบออกจากหน้าจัดกล่องแล้วค่ะเดียร์! 💖", 
+                    st.download_button(label="💖 โหลดไฟล์เสร็จสมบูรณ์ พร้อมสับ! 💖", 
                                      data=output.getvalue(), 
-                                     file_name=f"Queen_Logistics_Fixed_Ostrich_{datetime.now().strftime('%H%M')}.xlsx")
+                                     file_name=f"Queen_Logistics_{datetime.now().strftime('%H%M')}.xlsx")
     except Exception as e: st.error(f"อุ๊ย! ขอโทษทีค่ะเดียร์ มีจุดผิด: {e}")
