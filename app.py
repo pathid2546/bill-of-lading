@@ -27,14 +27,49 @@ if 'order_total' not in st.session_state: st.session_state.order_total = []
 tab_upload, tab_setting, tab_process = st.tabs(["💅 อัปโหลดไฟล์", "↕️ ลำดับสินค้า", "🚀 ประมวลผล"])
 
 with tab_upload:
-    file = st.file_uploader("ส่งไฟล์ Excel มาเลยค่ะคุณเดียร์ ปรับปรุงชื่อเนื้อออสเป็นเนื้อวัวออสเตรเลียเรียบร้อย!", type=["xlsx"])
+    file = st.file_uploader("ส่งไฟล์ Excel มาเลยค่ะคุณเดียร์ เพิ่ม Order No. ลงในวงเล็บให้แล้ว!", type=["xlsx"])
 
 if file:
     try:
         route_df = pd.read_excel(file, sheet_name='Route', header=None)
-        route_lookup = {str(r[0]).strip(): str(r[2]).strip() for _, r in route_df.iterrows() if pd.notna(r[0])}
-        short_name_lookup = {str(r[0]).strip(): str(r[0]).strip() for _, r in route_df.iterrows() if pd.notna(r[0])}
         
+        # --- 🔥 อัปเกรดระบบดึง STORE CODE และ ORDER NO. อัตโนมัติ ---
+        order_no_idx = None
+        for c in route_df.columns:
+            # ค้นหาว่าคอลัมน์ไหนมีคำว่า ORDER NO
+            if route_df[c].astype(str).str.contains('ORDER NO', case=False, na=False).any():
+                order_no_idx = c
+                break
+
+        route_lookup = {}
+        info_lookup = {}
+        
+        for _, r in route_df.iterrows():
+            code = str(r[0]).strip() if pd.notna(r[0]) else ""
+            name = str(r[1]).strip() if len(r) > 1 and pd.notna(r[1]) else ""
+            
+            if code.upper() in ['STORE CODE', 'CODE', 'รหัสสาขา'] or not code:
+                continue
+                
+            trip = str(r[2]).strip() if len(r) > 2 else ""
+            
+            order_no = ""
+            if order_no_idx is not None and pd.notna(r[order_no_idx]):
+                val = str(r[order_no_idx]).strip()
+                if 'ORDER' not in val.upper(): # กันไม่ให้ดึงคำว่า ORDER NO ที่เป็นหัวตารางมา
+                    order_no = val
+            
+            # เก็บข้อมูล Trip โดยอิงจากทั้ง Code และ Name เผื่อไว้
+            route_lookup[code] = trip
+            if name: route_lookup[name] = trip
+            
+            # 🔥 มัดรวม STORE CODE + ORDER NO
+            combined = code
+            if order_no: combined += f" {order_no}"
+            
+            info_lookup[code] = combined
+            if name: info_lookup[name] = combined
+            
         xls = pd.ExcelFile(file)
         main_sheet = xls.sheet_names[0]
         raw_df = pd.read_excel(file, sheet_name=main_sheet, header=None)
@@ -53,7 +88,7 @@ if file:
             for _, row in df_clean.iterrows():
                 product = str(row.get('Description', '')).strip()
                 
-                # 🔥 แก้ปัญหา (แช่แข็ง) ตรงนี้! ตัดคำทิ้งไปเลยให้มันอ่านเป็นสินค้าเดียวกัน
+                # ตัดคำว่า (แช่แข็ง) ทิ้งให้มองเป็นสินค้าเดียวกัน
                 product = product.replace('(แช่แข็ง)', '').strip()
                 
                 if product in ['', 'nan', '0', '0.0'] or 'Description' in product: continue
@@ -65,11 +100,19 @@ if file:
                         if qty > 0:
                             col_idx = list(df_clean.columns).index(col_name)
                             current_store_code = str(store_codes_row[col_idx]).strip()
-                            short_code = short_name_lookup.get(current_store_code, "")
-                            display_name = f"{col_name} ( {short_code} )" if short_code else col_name
+                            
+                            # 🔥 ดึง (STORE CODE + ORDER NO.) มาต่อท้ายชื่อสาขา
+                            addon_info = info_lookup.get(current_store_code)
+                            if not addon_info: addon_info = info_lookup.get(str(col_name).strip()) # ถ้า Code ไม่เจอ ให้หาจากชื่อแทน
+                            if not addon_info: addon_info = current_store_code
+                            
+                            display_name = f"{col_name} ({addon_info})" if addon_info else str(col_name)
+                            
+                            trip_val = route_lookup.get(current_store_code)
+                            if not trip_val: trip_val = route_lookup.get(str(col_name).strip(), "ไม่พบรหัส")
                             
                             all_rows.append({
-                                'TRIP': route_lookup.get(current_store_code, "ไม่พบรหัส"), 
+                                'TRIP': trip_val, 
                                 'STORE NAME': display_name, 
                                 'Product': product, 
                                 'Qty': qty
@@ -78,13 +121,10 @@ if file:
 
             full_df = pd.DataFrame(all_rows)
             
-            # 🔥 เพิ่ม "เนื้อวัวสันคอ" ตามรีเควส
             meat_items = ["เนื้อวัวสันคอ", "เนื้อสันคอ", "เนื้อวัวออสเตรเลีย", "สันคอหมู", "หมูสามชั้น", "หมูสันนอก", "หมูคูโรบุตะ"]
             fixed_top = ["ปูอัด", "ปูอัดชีส", "หอยเชลล์โฮตาเตะญี่ปุ่น(NW100%)", "ปลาดอลลี่ NW 70% (200-400)", "ชีสมอสซาเรลล่า", "คิมมาริ", "น้ำจิ้มพอนสึ ยูสุ (ถุง 2 ก.ก.)", "น้ำจิ้มสุกี้"]
             
-            # --- ระบบเรียงลำดับสินค้า (หน้าจัดกล่อง และหน้า Order) ---
             if not st.session_state.order_box: 
-                # ดึงรายการที่ไม่ใช่กลุ่ม meat_items
                 box_items = [p for p in original_order if p not in meat_items]
                 st.session_state.order_box = [p for p in fixed_top if p in box_items] + [p for p in box_items if p not in fixed_top]
             if not st.session_state.order_total: st.session_state.order_total = original_order
@@ -95,20 +135,17 @@ if file:
                 with c2: st.markdown("📋 **จัดลำดับหน้า Order**"); st.session_state.order_total = sort_items(st.session_state.order_total, key="total")
 
             with tab_process:
-                if st.button("🚀 ประมวลผลระบบครบจบ (แก้ไขแช่แข็ง & เพิ่มเนื้อวัวสันคอแล้ว)"):
-                    # 1. ข้อมูลหน้าน้ำหนัก
+                if st.button("🚀 ประมวลผลระบบครบจบ (เพิ่ม ORDER NO. เรียบร้อย)"):
                     m_weight = full_df[full_df['Product'].isin(meat_items)].pivot_table(index=['TRIP', 'STORE NAME'], columns='Product', values='Qty', aggfunc='sum').fillna(0).reset_index()
                     for col in meat_items:
                         if col not in m_weight.columns:
                             m_weight[col] = 0.0
                     
-                    # 2. ข้อมูลหน้าจัดกล่อง
                     m_box = full_df[~full_df['Product'].isin(meat_items)].pivot_table(index=['TRIP', 'STORE NAME'], columns='Product', values='Qty', aggfunc='sum').fillna(0).reset_index()
                     prods_box_list = [p for p in st.session_state.order_box if p in m_box.columns]
                     m_box = m_box[['TRIP', 'STORE NAME'] + prods_box_list].sort_values(['TRIP', 'STORE NAME'])
                     m_box['รวมจำนวน'] = m_box[prods_box_list].sum(axis=1)
                     
-                    # 3. ข้อมูลหน้า Order
                     m_order = full_df.pivot_table(index=['TRIP', 'STORE NAME'], columns='Product', values='Qty', aggfunc='sum').fillna(0).reset_index()
                     prods_order_list = [p for p in st.session_state.order_total if p in m_order.columns]
                     m_order = m_order[['TRIP', 'STORE NAME'] + prods_order_list].sort_values(['TRIP', 'STORE NAME'])
@@ -116,7 +153,6 @@ if file:
                     output = io.BytesIO()
                     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                         wb = writer.book
-                        # --- Formats ---
                         h_f = wb.add_format({'bold':True, 'align':'center', 'valign':'vcenter', 'bg_color':'#F2F2F2', 'border':1, 'text_wrap':True})
                         d_f_15 = wb.add_format({'border':1, 'align':'center', 'valign':'vcenter', 'font_size': 15})
                         d_f_15_left = wb.add_format({'border':1, 'align':'left', 'valign':'vcenter', 'font_size': 15, 'indent': 1})
@@ -226,7 +262,7 @@ if file:
                         ws5.set_column('B:B', 10); ws5.set_column('C:C', 35); ws5.set_column('D:ZZ', 10)
 
                     st.balloons()
-                    st.download_button(label="💖 โหลดไฟล์เสร็จสมบูรณ์ พร้อมสับ! 💖", 
+                    st.download_button(label="💖 โหลดไฟล์เสร็จสมบูรณ์ พร้อมส่งของแล้วค่ะตัวแม่! 💖", 
                                      data=output.getvalue(), 
                                      file_name=f"Queen_Logistics_{datetime.now().strftime('%H%M')}.xlsx")
     except Exception as e: st.error(f"อุ๊ย! ขอโทษทีค่ะเดียร์ มีจุดผิด: {e}")
