@@ -27,16 +27,15 @@ if 'order_total' not in st.session_state: st.session_state.order_total = []
 tab_upload, tab_setting, tab_process = st.tabs(["💅 อัปโหลดไฟล์", "↕️ ลำดับสินค้า", "🚀 ประมวลผล"])
 
 with tab_upload:
-    file = st.file_uploader("ส่งไฟล์ Excel มาเลยค่ะคุณเดียร์ เพิ่ม Order No. ลงในวงเล็บให้แล้ว!", type=["xlsx"])
+    file = st.file_uploader("ส่งไฟล์ Excel มาเลยค่ะคุณเดียร์ ยุบรวมเนื้อวัวสันคอให้แล้ว!", type=["xlsx"])
 
 if file:
     try:
         route_df = pd.read_excel(file, sheet_name='Route', header=None)
         
-        # --- 🔥 อัปเกรดระบบดึง STORE CODE และ ORDER NO. อัตโนมัติ ---
+        # --- อัปเกรดระบบดึง STORE CODE และ ORDER NO. อัตโนมัติ ---
         order_no_idx = None
         for c in route_df.columns:
-            # ค้นหาว่าคอลัมน์ไหนมีคำว่า ORDER NO
             if route_df[c].astype(str).str.contains('ORDER NO', case=False, na=False).any():
                 order_no_idx = c
                 break
@@ -56,14 +55,12 @@ if file:
             order_no = ""
             if order_no_idx is not None and pd.notna(r[order_no_idx]):
                 val = str(r[order_no_idx]).strip()
-                if 'ORDER' not in val.upper(): # กันไม่ให้ดึงคำว่า ORDER NO ที่เป็นหัวตารางมา
+                if 'ORDER' not in val.upper():
                     order_no = val
             
-            # เก็บข้อมูล Trip โดยอิงจากทั้ง Code และ Name เผื่อไว้
             route_lookup[code] = trip
             if name: route_lookup[name] = trip
             
-            # 🔥 มัดรวม STORE CODE + ORDER NO
             combined = code
             if order_no: combined += f" {order_no}"
             
@@ -91,6 +88,10 @@ if file:
                 # ตัดคำว่า (แช่แข็ง) ทิ้งให้มองเป็นสินค้าเดียวกัน
                 product = product.replace('(แช่แข็ง)', '').strip()
                 
+                # 🔥 แปลงร่าง "เนื้อวัวสันคอ" ให้กลายเป็น "เนื้อสันคอ" เพื่อจับยุบรวมยอด!
+                if product == 'เนื้อวัวสันคอ':
+                    product = 'เนื้อสันคอ'
+                
                 if product in ['', 'nan', '0', '0.0'] or 'Description' in product: continue
                 if product not in original_order: original_order.append(product)
                 
@@ -101,9 +102,8 @@ if file:
                             col_idx = list(df_clean.columns).index(col_name)
                             current_store_code = str(store_codes_row[col_idx]).strip()
                             
-                            # 🔥 ดึง (STORE CODE + ORDER NO.) มาต่อท้ายชื่อสาขา
                             addon_info = info_lookup.get(current_store_code)
-                            if not addon_info: addon_info = info_lookup.get(str(col_name).strip()) # ถ้า Code ไม่เจอ ให้หาจากชื่อแทน
+                            if not addon_info: addon_info = info_lookup.get(str(col_name).strip()) 
                             if not addon_info: addon_info = current_store_code
                             
                             display_name = f"{col_name} ({addon_info})" if addon_info else str(col_name)
@@ -121,7 +121,8 @@ if file:
 
             full_df = pd.DataFrame(all_rows)
             
-            meat_items = ["เนื้อวัวสันคอ", "เนื้อสันคอ", "เนื้อวัวออสเตรเลีย", "สันคอหมู", "หมูสามชั้น", "หมูสันนอก", "หมูคูโรบุตะ"]
+            # 🔥 เอา "เนื้อวัวสันคอ" ออกจากหมวดหมู่ เพราะเรายุบมันไปรวมใน "เนื้อสันคอ" แล้ว
+            meat_items = ["เนื้อสันคอ", "เนื้อวัวออสเตรเลีย", "สันคอหมู", "หมูสามชั้น", "หมูสันนอก", "หมูคูโรบุตะ"]
             fixed_top = ["ปูอัด", "ปูอัดชีส", "หอยเชลล์โฮตาเตะญี่ปุ่น(NW100%)", "ปลาดอลลี่ NW 70% (200-400)", "ชีสมอสซาเรลล่า", "คิมมาริ", "น้ำจิ้มพอนสึ ยูสุ (ถุง 2 ก.ก.)", "น้ำจิ้มสุกี้"]
             
             if not st.session_state.order_box: 
@@ -135,7 +136,7 @@ if file:
                 with c2: st.markdown("📋 **จัดลำดับหน้า Order**"); st.session_state.order_total = sort_items(st.session_state.order_total, key="total")
 
             with tab_process:
-                if st.button("🚀 ประมวลผลระบบครบจบ (เพิ่ม ORDER NO. เรียบร้อย)"):
+                if st.button("🚀 ประมวลผลระบบครบจบ (ยุบรวมเนื้อวัวสันคอเรียบร้อย)"):
                     m_weight = full_df[full_df['Product'].isin(meat_items)].pivot_table(index=['TRIP', 'STORE NAME'], columns='Product', values='Qty', aggfunc='sum').fillna(0).reset_index()
                     for col in meat_items:
                         if col not in m_weight.columns:
